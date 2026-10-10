@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hardware Store - Gestão de Clientes</title>
+<style>
+  :root { --bg:#0f1115; --panel:#181b21; --panel-2:#22262d; --border:#2d333b; --text:#e8eaed; --muted:#8b93a1; --accent:#3b82f6; --ok:#10b981; --err:#ef4444; --warn:#f59e0b; --radius:10px; --sans: -apple-system, sans-serif; }
+  * { box-sizing:border-box; margin: 0; padding: 0; }
+  body { background:var(--bg); color:var(--text); font-family:var(--sans); display:flex; min-height:100vh; overflow-x: hidden; }
+  nav { width:250px; background:var(--panel); border-right:1px solid var(--border); padding:24px 0; flex-shrink:0; overflow-y:auto; }
+  nav .brand { font-size:18px; font-weight:700; padding:0 24px 20px; border-bottom:1px solid var(--border); margin-bottom:12px; display:flex; align-items:center; gap:10px; }
+  nav .brand span { color: var(--accent); }
+  nav button { display:block; width:100%; text-align:left; background:none; border:none; color:var(--muted); padding:12px 24px; font-size:14px; cursor:pointer; transition: 0.2s; border-left:3px solid transparent;}
+  nav button:hover { color:var(--text); background:rgba(255,255,255,0.03); }
+  nav button.active { color:var(--accent); border-left-color:var(--accent); background:rgba(59, 130, 246, 0.1); font-weight: 500; }
+  nav .section-label { font-size:11px; text-transform:uppercase; letter-spacing:1.5px; color:#556070; padding:20px 24px 8px; font-weight:600; }
+  main { flex:1; padding:32px 48px; max-width:1200px; overflow-y:auto; max-height:100vh; }
+  h1 { font-size:24px; font-weight:600; margin-bottom:6px; }
+  .subtitle { color:var(--muted); font-size:14px; margin-bottom:24px; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:24px; margin-bottom:20px; }
+  h3 { margin-bottom:16px; font-size:16px; font-weight: 600; }
+  label { display:block; font-size:12px; font-weight:500; color:var(--muted); margin-bottom:6px; margin-top:12px; }
+  input, select { width:100%; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:10px 12px; color:var(--text); font-size:14px; }
+  input:focus, select:focus { outline:none; border-color:var(--accent); }
+  .row { display:flex; gap:16px; align-items: flex-end; flex-wrap: wrap; } .row > * { flex:1; min-width: 150px;}
+  button.action { margin-top:16px; background:var(--accent); color:#fff; border:none; padding:10px 20px; border-radius:6px; font-weight:600; cursor:pointer; }
+  button.secondary { margin-top:16px; background:var(--panel-2); border:1px solid var(--border); color:var(--text); padding:10px 20px; border-radius:6px; cursor:pointer; }
+  button.small { margin:0; padding:6px 10px; font-size:12px; }
+  .badge { font-size:11px; font-weight:600; padding:4px 8px; border-radius:4px; }
+  .badge.ATIVO { background: rgba(16, 185, 129, 0.15); color: var(--ok); }
+  .badge.INATIVO { background: rgba(239, 68, 68, 0.15); color: var(--err); }
+  .badge.PREFERENCIAL { background: rgba(59, 130, 246, 0.15); color: var(--accent); }
+  .subcard { border:1px solid var(--border); border-radius:8px; padding:16px; margin-top:16px; background:var(--panel-2); }
+  table.mini { width:100%; text-align:left; border-collapse:collapse; font-size:13px; }
+  table.mini th { color:var(--muted); font-size:11px; font-weight:500; padding:6px 4px; border-bottom:1px solid var(--border); }
+  table.mini td { padding:8px 4px; border-bottom:1px solid var(--border); }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="brand"><span>▲</span> Hardware Store</div>
+  <div class="section-label">Administração</div>
+  <button data-view="admin-clientes" class="active" data-cy="nav-admin-clientes">Gestão de Clientes</button>
+</nav>
+
+<main>
+  <div id="view-container"></div>
+</main>
+
+<script>
+
+let adminClienteState = {
+  modo: 'lista',
+  editandoId: null,
+  filtro: { codigo: '', nome: '', cpf: '', email: '', telefone: '', genero: '', nasc: '', ranking: '', status: 'todos' },
+  // (RNF0034 - endereço deve poder ser alterado sem editar o resto do cadastro)
+  mostrarNovoEndereco: false,
+  editandoEnderecoId: null,
+  mostrarNovoCartao: false,
+  mostrarAlterarSenha: false
+};
+
+const db = {
+  clientes: [
+    {
+      id: 1, nome: "João Silva", email: "joao.silva@email.com", cpf: "123.456.789-00",
+      nasc: "1990-05-15", genero: "M", telefone: { tipo: "Celular", ddd: "11", numero: "98765-4321" }, ativo: true,
+      ranking: 85,
+      // (RNF0033) é responsabilidade do backend , não deste front.
+      senha: "SenhaInicial@123",
+      // RN0021/RN0022 - endereço cobre cobrança e entrega simultaneamente;
+      // RN0023 - composição obrigatória + campo opcional de observações
+      enderecos: [{
+        id: 1, apelido: "Casa", tipoRes: "Casa", tipoLog: "Rua", logradouro: "das Flores", num: "123",
+        bairro: "Centro", cep: "01000-000", cidade: "São Paulo", estado: "SP", pais: "Brasil",
+        observacoes: "", cobranca: true, entrega: true
+      }],
+      // RF0027 - cartões de crédito; RN0024/RN0025 - composição e bandeira de lista fechada
+      cartoes: [
+        { id: 1, bandeira: "Visa", ultimos4: "4242", titular: "JOAO SILVA", preferencial: true }
+      ]
+    }
+  ],
+  pedidos: [
+    { id: 1001, clienteId: 1, status: "ENTREGUE", total: 4150.00 },
+    { id: 1002, clienteId: 1, status: "EM_TRANSPORTE", total: 899.90 }
+  ]
+};
+
+// RNF0035 - todo cliente cadastrado recebe um código único, nunca reutilizado.
+// (Mock de front: no sistema real o código é gerado pelo banco de dados.)
+let ultimoCodigoCliente = 1; // 1 = cliente do seed
+function novoCodigoCliente() { return ++ultimoCodigoCliente; }
+let ultimoIdAuxiliar = 1000; // endereços e cartões
+function novoIdAuxiliar() { return ++ultimoIdAuxiliar; }
+
+function esc(v) { return String(v ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+
+// RN0025 - bandeiras registradas/permitidas no sistema 
+const BANDEIRAS_PERMITIDAS = ["Visa", "Mastercard", "Elo", "American Express", "Hipercard"];
+
+// RN0026 - telefone deve ser composto de Tipo + DDD + Número
+const TIPOS_TELEFONE = ["Celular", "Residencial", "Comercial"];
+const REGEX_DDD = /^\d{2}$/;
+const REGEX_TEL_NUMERO = /^\d{4,5}-\d{4}$/;
+
+// RN0021/RN0022 - todo cliente deve ter ao menos um endereço de cobrança e
+// ao menos um endereço de entrega (o mesmo endereço pode cobrir os dois papéis)
+function enderecosSatisfazemRegras(enderecos) {
+  return {
+    temCobranca: enderecos.some(e => e.cobranca),
+    temEntrega: enderecos.some(e => e.entrega)
+  };
+}
+
+const views = {};
+
+views['admin-clientes'] = () => adminClienteState.modo === 'form' ? renderFormCliente() : renderListaClientes();
+
+// RF0024 - Consulta de clientes com filtro combinável/isolado
+function renderListaClientes() {
+  const f = adminClienteState.filtro;
+  const lista = db.clientes.filter(c => {
+    const telDigitos = c.telefone ? `${c.telefone.ddd}${c.telefone.numero}`.replace(/\D/g, '') : '';
+    if (f.codigo && String(c.id) !== f.codigo.trim()) return false;
+    if (f.nome && !c.nome.toLowerCase().includes(f.nome.toLowerCase())) return false;
+    if (f.cpf && !c.cpf.includes(f.cpf)) return false;
+    if (f.email && !c.email.toLowerCase().includes(f.email.toLowerCase())) return false;
+    if (f.telefone && !telDigitos.includes(f.telefone.replace(/\D/g, ''))) return false;
+    if (f.genero && c.genero !== f.genero) return false;
+    if (f.nasc && c.nasc !== f.nasc) return false;
+    if (f.ranking !== '' && Number(c.ranking) !== Number(f.ranking)) return false;
+    if (f.status === 'ativos' && !c.ativo) return false;
+    if (f.status === 'inativos' && c.ativo) return false;
+    return true;
+  });
+
+  return `
+    <h1>Gestão de Clientes</h1>
+    <div class="card">
+      <div id="erro-lista" data-cy="msg-erro-lista" style="display:none; color:var(--err); margin-bottom:10px;"></div>
+      <div class="row">
+        <div><label>Código</label><input id="filtro-codigo" data-cy="filtro-codigo" value="${esc(f.codigo)}"></div>
+        <div><label>Nome</label><input id="filtro-nome" data-cy="filtro-nome" value="${esc(f.nome)}"></div>
+        <div><label>CPF</label><input id="filtro-cpf" data-cy="filtro-cpf" value="${esc(f.cpf)}"></div>
+        <div><label>E-mail</label><input id="filtro-email" data-cy="filtro-email" value="${esc(f.email)}"></div>
+      </div>
+      <div class="row">
+        <div><label>Telefone</label><input id="filtro-telefone" data-cy="filtro-telefone" placeholder="DDD + número" value="${esc(f.telefone)}"></div>
+        <div>
+          <label>Gênero</label>
+          <select id="filtro-genero" data-cy="filtro-genero">
+            <option value="">Todos</option>
+            <option value="M" ${f.genero === 'M' ? 'selected' : ''}>Masculino</option>
+            <option value="F" ${f.genero === 'F' ? 'selected' : ''}>Feminino</option>
+          </select>
+        </div>
+        <div><label>Data Nasc.</label><input type="date" id="filtro-nasc" data-cy="filtro-nasc" value="${esc(f.nasc)}"></div>
+        <div><label>Ranking</label><input type="number" id="filtro-ranking" data-cy="filtro-ranking" value="${esc(f.ranking)}"></div>
+        <div>
+          <label>Status</label>
+          <select id="filtro-status" data-cy="filtro-status">
+            <option value="todos" ${f.status === 'todos' ? 'selected' : ''}>Todos</option>
+            <option value="ativos" ${f.status === 'ativos' ? 'selected' : ''}>Ativos</option>
+            <option value="inativos" ${f.status === 'inativos' ? 'selected' : ''}>Inativos</option>
+          </select>
+        </div>
+      </div>
+      <button class="action" data-cy="btn-buscar" onclick="filtrar()">Buscar</button>
+      <button class="action" style="float:right; background:var(--ok);" data-cy="btn-novo" onclick="abrirForm()">+ Novo Cliente</button>
+    </div>
+    <div class="card">
+      <table style="width:100%; text-align:left; border-collapse:collapse;">
+        <tr style="border-bottom:1px solid var(--border); font-size:12px;">
+          <th>Código</th><th>Nome</th><th>CPF</th><th>Ranking</th><th>Status</th><th>Ações</th>
+        </tr>
+        ${lista.map(c => `
+          <tr data-cy="cliente-row" data-id="${c.id}" style="border-bottom:1px solid var(--border); font-size:13px; height: 45px;">
+            <td>${c.id}</td><td data-cy="col-nome">${c.nome}</td><td data-cy="col-cpf">${c.cpf}</td><td>${c.ranking} pts</td>
+            <td data-cy="col-status"><span class="badge ${c.ativo ? 'ATIVO' : 'INATIVO'}">${c.ativo ? 'ATIVO' : 'INATIVO'}</span></td>
+            <td>
+              <button class="secondary small" data-cy="btn-editar" onclick="abrirForm(${c.id})">Editar</button>
+              ${c.ativo ? `<button class="secondary small" style="color:var(--warn)" data-cy="btn-inativar" onclick="inativar(${c.id})">Inativar</button>`
+                        : `<button class="secondary small" style="color:var(--ok)" data-cy="btn-reativar" onclick="reativar(${c.id})">Reativar</button>`}
+              <button class="secondary small" style="color:var(--err)" data-cy="btn-excluir" onclick="excluir(${c.id})">Excluir</button>
+            </td>
+          </tr>
+        `).join('') || `<tr><td colspan="6" data-cy="sem-resultado" style="padding:16px 4px; color:var(--muted);">Nenhum cliente encontrado.</td></tr>`}
+      </table>
+    </div>
+  `;
+}
+
+function filtrar() {
+  const v = (id) => document.getElementById(id).value;
+  adminClienteState.filtro = {
+    codigo: v('filtro-codigo'), nome: v('filtro-nome'), cpf: v('filtro-cpf'), email: v('filtro-email'),
+    telefone: v('filtro-telefone'), genero: v('filtro-genero'), nasc: v('filtro-nasc'), ranking: v('filtro-ranking'),
+    status: v('filtro-status')
+  };
+  navigate('admin-clientes');
+}
+
+function voltarLista() {
+  adminClienteState.modo = 'lista';
+  adminClienteState.editandoId = null;
+  adminClienteState.mostrarNovoEndereco = false;
+  adminClienteState.editandoEnderecoId = null;
+  adminClienteState.mostrarNovoCartao = false;
+  adminClienteState.mostrarAlterarSenha = false;
+  navigate('admin-clientes');
+}
+
+function abrirForm(id) {
+  adminClienteState.modo = 'form';
+  adminClienteState.editandoId = id || null;
+  adminClienteState.mostrarNovoEndereco = false;
+  adminClienteState.editandoEnderecoId = null;
+  adminClienteState.mostrarNovoCartao = false;
+  adminClienteState.mostrarAlterarSenha = false;
+  navigate('admin-clientes');
+}
+
+// RF0021 (Cadastrar) / RF0022 (Alterar) - formulário principal
+function renderFormCliente() {
+  const isEdit = !!adminClienteState.editandoId;
+  const ed = isEdit ? db.clientes.find(x => x.id === adminClienteState.editandoId) : null;
+
+  return `
+    <button class="secondary" onclick="voltarLista()">← Voltar</button>
+    <h1>${isEdit ? 'Alterar Cliente' : 'Cadastrar Cliente'}</h1>
+    <div class="card">
+      <div id="erro-form" data-cy="msg-erro-form" style="display:none; color:var(--err); padding:10px; background:rgba(239,68,68,0.1); border-radius:6px; margin-bottom:16px;"></div>
+
+      <h3>Dados Pessoais</h3>
+      <div class="row">
+        <div style="flex:2"><label>Nome *</label><input id="f-nome" data-cy="i-nome" value="${ed ? ed.nome : ''}"></div>
+        <div><label>CPF *</label><input id="f-cpf" data-cy="i-cpf" value="${ed ? ed.cpf : ''}"></div>
+        <div><label>Gênero *</label>
+          <select id="f-genero" data-cy="i-genero">
+            <option value="">Selecione</option>
+            <option value="M" ${ed && ed.genero === 'M' ? 'selected' : ''}>Masculino</option>
+            <option value="F" ${ed && ed.genero === 'F' ? 'selected' : ''}>Feminino</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div><label>Data Nasc. *</label><input type="date" id="f-nasc" data-cy="i-nasc" value="${ed ? ed.nasc : ''}"></div>
+        <div><label>Tipo Telefone *</label>
+          <select id="f-tel-tipo" data-cy="i-tel-tipo">
+            <option value="">Selecione</option>
+            ${TIPOS_TELEFONE.map(t => `<option value="${t}" ${ed && ed.telefone && ed.telefone.tipo === t ? 'selected' : ''}>${t}</option>`).join('')}
+          </select>
+        </div>
+        <div><label>DDD *</label><input id="f-tel-ddd" data-cy="i-tel-ddd" placeholder="11" maxlength="2" value="${ed && ed.telefone ? ed.telefone.ddd : ''}"></div>
+        <div><label>Número *</label><input id="f-tel-numero" data-cy="i-tel-numero" placeholder="98765-4321" value="${ed && ed.telefone ? ed.telefone.numero : ''}"></div>
+      </div>
+      <div class="row">
+        <div style="flex:2"><label>E-mail *</label><input id="f-email" data-cy="i-email" value="${ed ? ed.email : ''}"></div>
+      </div>
+
+      ${!isEdit ? `
+        <div class="row">
+          <div><label>Senha * (Mín. 8 chars, 1 Maiúscula, 1 Minúscula, 1 Símbolo)</label><input type="password" id="f-senha" data-cy="i-senha"></div>
+          <div><label>Confirmar Senha *</label><input type="password" id="f-conf" data-cy="i-conf"></div>
+        </div>
+
+        <h3 style="margin-top:24px;">Endereço Residencial Inicial</h3>
+        <div class="row">
+          <div><label>Apelido do Endereço *</label><input id="e-apelido" data-cy="i-apelido" placeholder="Casa, Trabalho..." value=""></div>
+          <div><label>Tipo Res. *</label><input id="e-tres" data-cy="i-tres" placeholder="Casa, Apto"></div>
+          <div><label>Tipo Lograd. *</label><input id="e-tlog" data-cy="i-tlog" placeholder="Rua, Av"></div>
+        </div>
+        <div class="row">
+          <div style="flex:2"><label>Logradouro *</label><input id="e-log" data-cy="i-log"></div>
+          <div><label>Número *</label><input id="e-num" data-cy="i-num"></div>
+          <div><label>Bairro *</label><input id="e-bairro" data-cy="i-bairro"></div>
+        </div>
+        <div class="row">
+          <div><label>CEP *</label><input id="e-cep" data-cy="i-cep"></div>
+          <div><label>Cidade *</label><input id="e-cid" data-cy="i-cid"></div>
+          <div><label>Estado *</label><input id="e-est" data-cy="i-est"></div>
+          <div><label>País *</label><input id="e-pais" data-cy="i-pais"></div>
+        </div>
+        <div class="row">
+          <div style="flex:3"><label>Observações (opcional)</label><input id="e-obs" data-cy="i-obs" placeholder="Ponto de referência, complemento..."></div>
+        </div>
+      ` : ''}
+
+      <button class="action" data-cy="btn-salvar" onclick="salvar()">Salvar Cadastro</button>
+    </div>
+
+    ${isEdit ? renderSecaoEnderecos(ed) : ''}
+    ${isEdit ? renderSecaoCartoes(ed) : ''}
+    ${isEdit ? renderSecaoSenha(ed) : ''}
+    ${isEdit ? renderSecaoTransacoes(ed) : ''}
+  `;
+}
+
+function erroMsg(msg) {
+  const e = document.getElementById('erro-form'); e.textContent = msg; e.style.display = 'block';
+}
+
+// RF0021 - Cadastro / RF0022 - Alteração (apenas dados pessoais)
+function salvar() {
+  const isEdit = !!adminClienteState.editandoId;
+  const n = document.getElementById('f-nome').value, c = document.getElementById('f-cpf').value,
+        g = document.getElementById('f-genero').value, na = document.getElementById('f-nasc').value,
+        telTipo = document.getElementById('f-tel-tipo').value,
+        telDdd = document.getElementById('f-tel-ddd').value,
+        telNumero = document.getElementById('f-tel-numero').value,
+        em = document.getElementById('f-email').value;
+
+  // RN0026 - dados obrigatórios do cliente: Gênero, Nome, Data Nasc., CPF,
+  // Telefone (tipo + DDD + número), e-mail, senha, endereço residencial
+  if (!n || !c || !g || !na || !telTipo || !telDdd || !telNumero || !em) {
+    return erroMsg('Preencha todos os campos obrigatórios.');
+  }
+
+  // RN0026 - telefone deve ser composto de tipo + DDD (2 dígitos) + número
+  if (!TIPOS_TELEFONE.includes(telTipo)) return erroMsg('Tipo de telefone inválido.');
+  if (!REGEX_DDD.test(telDdd)) return erroMsg('DDD inválido. Utilize 2 dígitos.');
+  if (!REGEX_TEL_NUMERO.test(telNumero)) return erroMsg('Número de telefone inválido. Utilize o formato 98765-4321.');
+
+  const telefone = { tipo: telTipo, ddd: telDdd, numero: telNumero };
+
+  if (!isEdit) {
+    const s = document.getElementById('f-senha').value, co = document.getElementById('f-conf').value;
+    const apelido = document.getElementById('e-apelido').value;
+    const tr = document.getElementById('e-tres').value, tl = document.getElementById('e-tlog').value,
+          lo = document.getElementById('e-log').value, nu = document.getElementById('e-num').value,
+          ba = document.getElementById('e-bairro').value, ce = document.getElementById('e-cep').value,
+          ci = document.getElementById('e-cid').value, es = document.getElementById('e-est').value, pa = document.getElementById('e-pais').value,
+          obs = document.getElementById('e-obs').value;
+
+    if (!s || !co) return erroMsg('Senha é obrigatória.');
+    // RNF0032 - Confirmação de Senha
+    if (s !== co) return erroMsg('As senhas não coincidem.');
+    // RNF0031 - Senha Forte (8 chars, 1 maiúscula, 1 minúscula, 1 símbolo)
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\W).{8,}$/.test(s)) return erroMsg('Senha fraca. Deve ter 8 caracteres, letras maiúsculas, minúsculas e símbolo.');
+
+    // RF0026 (apelido) + RN0023 (composição obrigatória do endereço; observações é opcional)
+    if (!apelido || !tr || !tl || !lo || !nu || !ba || !ce || !ci || !es || !pa) {
+      return erroMsg('Preencha todos os campos do endereço, incluindo o apelido.');
+    }
+
+    if (db.clientes.find(x => x.cpf === c)) return erroMsg('CPF já cadastrado.');
+
+    db.clientes.push({
+      id: novoCodigoCliente(), nome: n, cpf: c, genero: g, nasc: na, telefone, email: em,
+      ativo: true, ranking: 0, // RN0027 - ranking numérico do cliente
+      senha: s,
+      // RN0021/RN0022 - o endereço inicial satisfaz cobrança e entrega ao mesmo tempo
+      enderecos: [{ id: novoIdAuxiliar(), apelido, tipoRes: tr, tipoLog: tl, logradouro: lo, num: nu, bairro: ba, cep: ce, cidade: ci, estado: es, pais: pa, observacoes: obs, cobranca: true, entrega: true }],
+      cartoes: []
+    });
+    return voltarLista();
+  }
+
+  // Alteração - apenas dados pessoais (RNF0034 aplica o mesmo princípio: alterar
+  // dados pessoais não exige mexer em endereços, cartões ou senha)
+  if (db.clientes.find(x => x.cpf === c && x.id !== adminClienteState.editandoId)) return erroMsg('CPF já cadastrado.');
+
+  const cli = db.clientes.find(x => x.id === adminClienteState.editandoId);
+  Object.assign(cli, { nome: n, cpf: c, genero: g, nasc: na, telefone, email: em });
+  voltarLista();
+}
+
+// RF0023 - Inativar / Reativar
+function inativar(id) { db.clientes.find(x => x.id === id).ativo = false; navigate('admin-clientes'); }
+function reativar(id) { db.clientes.find(x => x.id === id).ativo = true; navigate('admin-clientes'); }
+
+
+function excluir(id) {
+  const msgEl = document.getElementById('erro-lista');
+  if (db.pedidos.some(p => p.clienteId === id)) {
+    msgEl.textContent = 'Cliente possui transações associadas e não pode ser excluído definitivamente. Utilize a inativação para preservar o histórico (RF0025).';
+    msgEl.style.display = 'block';
+    return;
+  }
+  db.clientes = db.clientes.filter(x => x.id !== id);
+  navigate('admin-clientes');
+}
+
+// ==========================================================================
+// RF0026 - Endereços (múltiplos, cada um com apelido / frase curta)
+// RN0021/RN0022 - cobrança e entrega | RN0023 - composição + observações opcional
+// RNF0034 - alteração de endereços sem precisar editar os demais dados
+// ==========================================================================
+function renderFormEndereco(cliente, end) {
+  const editando = !!end;
+  const v = (campo) => esc(editando ? end[campo] : '');
+  return `
+    <div class="subcard">
+      <h3 style="font-size:14px; margin-bottom:4px;">${editando ? 'Alterar endereço' : 'Novo endereço'}</h3>
+      <div class="row">
+        <div><label>Apelido *</label><input id="e-apelido" data-cy="i-apelido" value="${v('apelido')}"></div>
+        <div><label>Tipo Res. *</label><input id="e-tres" data-cy="i-tres" value="${v('tipoRes')}"></div>
+        <div><label>Tipo Lograd. *</label><input id="e-tlog" data-cy="i-tlog" value="${v('tipoLog')}"></div>
+      </div>
+      <div class="row">
+        <div style="flex:2"><label>Logradouro *</label><input id="e-log" data-cy="i-log" value="${v('logradouro')}"></div>
+        <div><label>Número *</label><input id="e-num" data-cy="i-num" value="${v('num')}"></div>
+        <div><label>Bairro *</label><input id="e-bairro" data-cy="i-bairro" value="${v('bairro')}"></div>
+      </div>
+      <div class="row">
+        <div><label>CEP *</label><input id="e-cep" data-cy="i-cep" value="${v('cep')}"></div>
+        <div><label>Cidade *</label><input id="e-cid" data-cy="i-cid" value="${v('cidade')}"></div>
+        <div><label>Estado *</label><input id="e-est" data-cy="i-est" value="${v('estado')}"></div>
+        <div><label>País *</label><input id="e-pais" data-cy="i-pais" value="${v('pais')}"></div>
+      </div>
+      <div class="row">
+        <div style="flex:3"><label>Observações (opcional)</label><input id="e-obs" data-cy="i-obs" value="${v('observacoes')}"></div>
+      </div>
+      <div class="row" style="align-items:center; gap:24px;">
+        <label style="display:flex; align-items:center; gap:6px; margin:0;">
+          <input type="checkbox" id="e-cobranca" data-cy="i-cobranca" style="width:auto;" ${!editando || end.cobranca ? 'checked' : ''}> Usar como endereço de cobrança
+        </label>
+        <label style="display:flex; align-items:center; gap:6px; margin:0;">
+          <input type="checkbox" id="e-entrega" data-cy="i-entrega" style="width:auto;" ${!editando || end.entrega ? 'checked' : ''}> Usar como endereço de entrega
+        </label>
+      </div>
+      <button class="action small" data-cy="btn-salvar-endereco" onclick="${editando ? `atualizarEndereco(${cliente.id}, ${end.id})` : `adicionarEndereco(${cliente.id})`}">${editando ? 'Salvar Alterações' : 'Salvar Endereço'}</button>
+      <button class="secondary small" data-cy="btn-cancelar-endereco" onclick="toggleNovoEndereco(false)">Cancelar</button>
+    </div>
+  `;
+}
+
+function renderSecaoEnderecos(cliente) {
+  const enderecos = cliente.enderecos || [];
+  const emEdicao = enderecos.find(e => e.id === adminClienteState.editandoEnderecoId);
+  return `
+    <div class="card">
+      <h3>Endereços</h3>
+      <div id="erro-endereco" data-cy="msg-erro-endereco" style="display:none; color:var(--err); margin-bottom:10px;"></div>
+      <table class="mini">
+        <tr><th>Apelido</th><th>Logradouro</th><th>Cidade/UF</th><th>Tipo</th><th>Ações</th></tr>
+        ${enderecos.map(end => `
+          <tr data-cy="endereco-row" data-id="${end.id}">
+            <td data-cy="col-apelido">${end.apelido}</td>
+            <td>${end.tipoLog} ${end.logradouro}, ${end.num}</td>
+            <td>${end.cidade}/${end.estado}</td>
+            <td data-cy="col-tipo-endereco">
+              ${end.cobranca ? '<span class="badge PREFERENCIAL">COBRANÇA</span>' : ''}
+              ${end.entrega ? '<span class="badge ATIVO">ENTREGA</span>' : ''}
+            </td>
+            <td>
+              <button class="secondary small" data-cy="btn-editar-endereco" onclick="editarEndereco(${end.id})">Editar</button>
+              <button class="secondary small" data-cy="btn-remover-endereco" onclick="removerEndereco(${cliente.id}, ${end.id})">Remover</button>
+            </td>
+          </tr>
+        `).join('') || `<tr><td colspan="5" data-cy="sem-endereco" style="color:var(--muted);">Nenhum endereço cadastrado.</td></tr>`}
+      </table>
+
+      ${emEdicao ? renderFormEndereco(cliente, emEdicao)
+        : adminClienteState.mostrarNovoEndereco ? renderFormEndereco(cliente)
+        : `<button class="secondary small" data-cy="btn-novo-endereco" onclick="toggleNovoEndereco(true)">+ Adicionar Endereço</button>`}
+    </div>
+  `;
+}
+
+function toggleNovoEndereco(v) {
+  adminClienteState.mostrarNovoEndereco = v;
+  adminClienteState.editandoEnderecoId = null;
+  navigate('admin-clientes');
+}
+
+// RNF0034 - alterar um endereço existente sem editar os demais dados cadastrais
+function editarEndereco(enderecoId) {
+  adminClienteState.mostrarNovoEndereco = false;
+  adminClienteState.editandoEnderecoId = enderecoId;
+  navigate('admin-clientes');
+}
+
+function lerFormEndereco() {
+  const g = (id) => document.getElementById(id).value;
+  return {
+    apelido: g('e-apelido'), tipoRes: g('e-tres'), tipoLog: g('e-tlog'), logradouro: g('e-log'), num: g('e-num'),
+    bairro: g('e-bairro'), cep: g('e-cep'), cidade: g('e-cid'), estado: g('e-est'), pais: g('e-pais'),
+    observacoes: g('e-obs'),
+    cobranca: document.getElementById('e-cobranca').checked,
+    entrega: document.getElementById('e-entrega').checked
+  };
+}
+
+function erroEndereco(msg) {
+  const el = document.getElementById('erro-endereco');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+// RN0023 - composição obrigatória do endereço (observações é opcional)
+function validarCamposEndereco(d) {
+  const obrigatorios = ['apelido', 'tipoRes', 'tipoLog', 'logradouro', 'num', 'bairro', 'cep', 'cidade', 'estado', 'pais'];
+  if (obrigatorios.some(k => !d[k])) return 'Preencha todos os campos obrigatórios do endereço.';
+  if (!d.cobranca && !d.entrega) return 'Marque o endereço como cobrança, entrega, ou ambos.';
+  return null;
+}
+
+function adicionarEndereco(clienteId) {
+  const dados = lerFormEndereco();
+  const erro = validarCamposEndereco(dados);
+  if (erro) return erroEndereco(erro);
+
+  const cliente = db.clientes.find(x => x.id === clienteId);
+  cliente.enderecos.push({ id: novoIdAuxiliar(), ...dados });
+  adminClienteState.mostrarNovoEndereco = false;
+  navigate('admin-clientes');
+}
+
+function atualizarEndereco(clienteId, enderecoId) {
+  const dados = lerFormEndereco();
+  const erro = validarCamposEndereco(dados);
+  if (erro) return erroEndereco(erro);
+
+  const cliente = db.clientes.find(x => x.id === clienteId);
+  const atualizados = cliente.enderecos.map(e => e.id === enderecoId ? { ...e, ...dados } : e);
+
+  // RN0021/RN0022 - a alteração não pode deixar o cliente sem cobrança ou sem entrega
+  const { temCobranca, temEntrega } = enderecosSatisfazemRegras(atualizados);
+  if (!temCobranca) return erroEndereco('Esta alteração deixaria o cliente sem nenhum endereço de cobrança (RN0021).');
+  if (!temEntrega) return erroEndereco('Esta alteração deixaria o cliente sem nenhum endereço de entrega (RN0022).');
+
+  cliente.enderecos = atualizados;
+  adminClienteState.editandoEnderecoId = null;
+  navigate('admin-clientes');
+}
+
+// RN0021/RN0022 - cliente deve manter ao menos um endereço de cobrança e ao
+// menos um endereço de entrega; a remoção é bloqueada se violar qualquer um
+// dos dois (o mesmo endereço pode contar para ambos os papéis).
+function removerEndereco(clienteId, enderecoId) {
+  const cliente = db.clientes.find(x => x.id === clienteId);
+  const erroEl = document.getElementById('erro-endereco');
+
+  const restantes = cliente.enderecos.filter(e => e.id !== enderecoId);
+  const { temCobranca, temEntrega } = enderecosSatisfazemRegras(restantes);
+
+  if (!temCobranca && !temEntrega) {
+    erroEl.textContent = 'O cliente deve manter ao menos um endereço de cobrança e um de entrega (RN0021/RN0022).';
+    erroEl.style.display = 'block';
+    return;
+  }
+  if (!temCobranca) {
+    erroEl.textContent = 'Esta remoção deixaria o cliente sem nenhum endereço de cobrança (RN0021).';
+    erroEl.style.display = 'block';
+    return;
+  }
+  if (!temEntrega) {
+    erroEl.textContent = 'Esta remoção deixaria o cliente sem nenhum endereço de entrega (RN0022).';
+    erroEl.style.display = 'block';
+    return;
+  }
+
+  cliente.enderecos = restantes;
+  navigate('admin-clientes');
+}
+
+// ==========================================================================
+// RF0027 - Cartões de crédito (múltiplos, um marcado como preferencial)
+// RN0024 - composição do registro | RN0025 - bandeira de lista fechada
+// ==========================================================================
+function renderSecaoCartoes(cliente) {
+  const cartoes = cliente.cartoes || [];
+  return `
+    <div class="card">
+      <h3>Cartões de Crédito</h3>
+      <div id="erro-cartao" data-cy="msg-erro-cartao" style="display:none; color:var(--err); margin-bottom:10px;"></div>
+      <table class="mini">
+        <tr><th>Bandeira</th><th>Número</th><th>Titular</th><th>Status</th><th>Ações</th></tr>
+        ${cartoes.map(cc => `
+          <tr data-cy="cartao-row" data-id="${cc.id}">
+            <td data-cy="col-bandeira">${cc.bandeira}</td>
+            <td>**** ${cc.ultimos4}</td>
+            <td>${cc.titular}</td>
+            <td data-cy="col-status-cartao">${cc.preferencial ? '<span class="badge PREFERENCIAL">PREFERENCIAL</span>' : '-'}</td>
+            <td>
+              ${!cc.preferencial ? `<button class="secondary small" data-cy="btn-tornar-preferencial" onclick="tornarPreferencial(${cliente.id}, ${cc.id})">Tornar Preferencial</button>` : ''}
+              <button class="secondary small" style="color:var(--err)" data-cy="btn-remover-cartao" onclick="removerCartao(${cliente.id}, ${cc.id})">Remover</button>
+            </td>
+          </tr>
+        `).join('') || `<tr><td colspan="5" data-cy="sem-cartao" style="color:var(--muted);">Nenhum cartão cadastrado.</td></tr>`}
+      </table>
+
+      ${adminClienteState.mostrarNovoCartao ? `
+        <div class="subcard">
+          <div class="row">
+            <div><label>Número do Cartão *</label><input id="cc-numero" data-cy="i-cc-numero" placeholder="0000 0000 0000 0000" maxlength="19"></div>
+            <div><label>Bandeira *</label>
+              <select id="cc-bandeira" data-cy="i-cc-bandeira">
+                <option value="">Selecione</option>
+                ${BANDEIRAS_PERMITIDAS.map(b => `<option value="${b}">${b}</option>`).join('')}
+              </select>
+            </div>
+            <div><label>Titular *</label><input id="cc-titular" data-cy="i-cc-titular"></div>
+            <div><label>Código de Segurança *</label><input id="cc-cvv" data-cy="i-cc-cvv" placeholder="CVV" maxlength="4"></div>
+          </div>
+          <button class="action small" data-cy="btn-salvar-cartao" onclick="adicionarCartao(${cliente.id})">Salvar Cartão</button>
+          <button class="secondary small" data-cy="btn-cancelar-cartao" onclick="toggleNovoCartao(false)">Cancelar</button>
+        </div>
+      ` : `<button class="secondary small" data-cy="btn-novo-cartao" onclick="toggleNovoCartao(true)">+ Adicionar Cartão</button>`}
+    </div>
+  `;
+}
+
+function toggleNovoCartao(v) { adminClienteState.mostrarNovoCartao = v; navigate('admin-clientes'); }
+
+function adicionarCartao(clienteId) {
+  const numero = document.getElementById('cc-numero').value.replace(/\s/g, '');
+  const bandeira = document.getElementById('cc-bandeira').value;
+  const titular = document.getElementById('cc-titular').value;
+  const cvv = document.getElementById('cc-cvv').value;
+
+  const erroEl = document.getElementById('erro-cartao');
+  // RN0024 - composição obrigatória: número, nome impresso, bandeira e código de segurança
+  if (!numero || !bandeira || !titular || !cvv) {
+    erroEl.textContent = 'Preencha todos os campos obrigatórios do cartão.';
+    erroEl.style.display = 'block';
+    return;
+  }
+  if (numero.length < 13) {
+    erroEl.textContent = 'Número de cartão inválido.';
+    erroEl.style.display = 'block';
+    return;
+  }
+  if (!/^\d{3,4}$/.test(cvv)) {
+    erroEl.textContent = 'Código de segurança inválido.';
+    erroEl.style.display = 'block';
+    return;
+  }
+  // RN0025 - bandeira deve ser de uma lista fechada registrada no sistema
+  if (!BANDEIRAS_PERMITIDAS.includes(bandeira)) {
+    erroEl.textContent = 'Bandeira não registrada no sistema.';
+    erroEl.style.display = 'block';
+    return;
+  }
+
+  const cliente = db.clientes.find(x => x.id === clienteId);
+  const ehPrimeiroCartao = cliente.cartoes.length === 0;
+  // Apenas os 4 últimos dígitos são armazenados - o número completo e o CVV nunca são persistidos
+  cliente.cartoes.push({
+    id: novoIdAuxiliar(), bandeira, titular, ultimos4: numero.slice(-4),
+    preferencial: ehPrimeiroCartao // RF0027 - deve sempre haver um cartão preferencial quando há cartões
+  });
+  adminClienteState.mostrarNovoCartao = false;
+  navigate('admin-clientes');
+}
+
+function tornarPreferencial(clienteId, cartaoId) {
+  const cliente = db.clientes.find(x => x.id === clienteId);
+  cliente.cartoes.forEach(cc => cc.preferencial = (cc.id === cartaoId));
+  navigate('admin-clientes');
+}
+
+function removerCartao(clienteId, cartaoId) {
+  const cliente = db.clientes.find(x => x.id === clienteId);
+  const eraPreferencial = cliente.cartoes.find(cc => cc.id === cartaoId)?.preferencial;
+  cliente.cartoes = cliente.cartoes.filter(cc => cc.id !== cartaoId);
+  // RF0027 - se havia mais de um cartão e o preferencial foi removido, promove o próximo
+  if (eraPreferencial && cliente.cartoes.length > 0) {
+    cliente.cartoes[0].preferencial = true;
+  }
+  navigate('admin-clientes');
+}
+
+// ==========================================================================
+// RF0028 - Alteração de senha isolada (sem editar os demais dados cadastrais)
+// ==========================================================================
+function renderSecaoSenha(cliente) {
+  return `
+    <div class="card">
+      <h3>Alterar Senha</h3>
+      <div id="erro-senha" data-cy="msg-erro-senha" style="display:none; color:var(--err); margin-bottom:10px;"></div>
+
+      ${adminClienteState.mostrarAlterarSenha ? `
+        <div class="subcard">
+          <div class="row">
+            <div><label>Nova Senha *</label><input type="password" id="nova-senha" data-cy="i-nova-senha"></div>
+            <div><label>Confirmar Nova Senha *</label><input type="password" id="nova-senha-conf" data-cy="i-nova-senha-conf"></div>
+          </div>
+          <button class="action small" data-cy="btn-salvar-senha" onclick="salvarNovaSenha(${cliente.id})">Salvar Nova Senha</button>
+          <button class="secondary small" data-cy="btn-cancelar-senha" onclick="toggleAlterarSenha(false)">Cancelar</button>
+        </div>
+      ` : `<button class="secondary small" data-cy="btn-abrir-senha" onclick="toggleAlterarSenha(true)">Alterar Senha</button>`}
+    </div>
+  `;
+}
+
+function toggleAlterarSenha(v) { adminClienteState.mostrarAlterarSenha = v; navigate('admin-clientes'); }
+
+function salvarNovaSenha(clienteId) {
+  const s = document.getElementById('nova-senha').value;
+  const co = document.getElementById('nova-senha-conf').value;
+  const erroEl = document.getElementById('erro-senha');
+
+  if (!s || !co) { erroEl.textContent = 'Preencha a nova senha e a confirmação.'; erroEl.style.display = 'block'; return; }
+  // RNF0032 - Confirmação de senha
+  if (s !== co) { erroEl.textContent = 'As senhas não coincidem.'; erroEl.style.display = 'block'; return; }
+  // RNF0031 - Senha forte
+  if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\W).{8,}$/.test(s)) {
+    erroEl.textContent = 'Senha fraca. Deve ter 8 caracteres, letras maiúsculas, minúsculas e símbolo.';
+    erroEl.style.display = 'block';
+    return;
+  }
+
+  const cliente = db.clientes.find(x => x.id === clienteId);
+  cliente.senha = s; // mock local; hashing real (RNF0033) é responsabilidade do backend
+  adminClienteState.mostrarAlterarSenha = false;
+  navigate('admin-clientes');
+}
+
+// ==========================================================================
+// RF0025 - Consulta de todas as transações do cliente, a partir do cadastro
+// ==========================================================================
+function renderSecaoTransacoes(cliente) {
+  const pedidos = db.pedidos.filter(p => p.clienteId === cliente.id);
+  return `
+    <div class="card">
+      <h3>Histórico de Transações</h3>
+      <table class="mini" data-cy="tabela-transacoes">
+        <tr><th>Pedido</th><th>Status</th><th>Total</th></tr>
+        ${pedidos.map(p => `
+          <tr data-cy="transacao-row" data-id="${p.id}">
+            <td>#${p.id}</td>
+            <td data-cy="col-status-transacao">${p.status}</td>
+            <td data-cy="col-total-transacao">R$ ${p.total.toFixed(2).replace('.', ',')}</td>
+          </tr>
+        `).join('') || `<tr><td colspan="3" data-cy="sem-transacao" style="color:var(--muted);">Nenhuma transação registrada.</td></tr>`}
+      </table>
+    </div>
+  `;
+}
+
+function navigate(v) { document.getElementById('view-container').innerHTML = views[v](); }
+navigate('admin-clientes');
+</script>
+</body>
+</html>

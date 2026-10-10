@@ -1,0 +1,31 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Frontend: servir (porta 5500)",
+      "type": "shell",
+      "command": "npm run start:front",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Backend: Spring Boot (porta 8080)",
+      "type": "shell",
+      "command": "npm run start:back",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Cypress: testes E2E (headless)",
+      "type": "shell",
+      "command": "npm run test:e2e",
+      "problemMatcher": []
+    },
+    {
+      "label": "Cypress: abrir interface",
+      "type": "shell",
+      "command": "npm run cy:open",
+      "problemMatcher": []
+    }
+  ]
+}

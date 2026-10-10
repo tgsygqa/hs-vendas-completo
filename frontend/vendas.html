@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Hardware Store — Vendas</title>
+<style>
+  :root { --bg:#0f1115; --panel:#181b21; --panel-2:#22262d; --border:#2d333b; --text:#e8eaed; --muted:#8b93a1; --accent:#3b82f6; --ok:#10b981; --err:#ef4444; --warn:#f59e0b; --radius:10px; --sans: -apple-system, sans-serif; }
+  * { box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:var(--sans); margin:0; min-height:100vh; }
+  header { padding:20px 32px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+  header h1 { font-size:18px; margin:0; }
+  header .steps { display:flex; gap:8px; font-size:13px; color:var(--muted); }
+  header .steps span.active { color:var(--accent); font-weight:600; }
+  main { max-width:1100px; margin:0 auto; padding:24px 32px; }
+  .row { display:flex; gap:20px; }
+  .col { flex:1; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:16px; }
+  .card h2 { font-size:15px; margin:0 0 14px; }
+  .card h3 { font-size:13px; margin:0 0 10px; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; }
+  label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; margin-top:10px; }
+  input, select { width:100%; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:9px 11px; color:var(--text); font-size:14px; }
+  input[type=checkbox] { width:auto; }
+  button.action { background:var(--accent); color:#fff; border:none; padding:10px 18px; border-radius:6px; font-weight:600; cursor:pointer; font-size:14px; }
+  button.action:disabled { opacity:.4; cursor:not-allowed; }
+  button.secondary { background:var(--panel-2); border:1px solid var(--border); color:var(--text); padding:9px 16px; border-radius:6px; cursor:pointer; font-size:13px; }
+  button.danger { background:rgba(239,68,68,.15); border:1px solid var(--err); color:var(--err); padding:6px 10px; border-radius:6px; cursor:pointer; font-size:12px; }
+  table { width:100%; border-collapse:collapse; }
+  th { text-align:left; font-size:11px; color:var(--muted); text-transform:uppercase; padding:6px 8px; border-bottom:1px solid var(--border); }
+  td { padding:10px 8px; border-bottom:1px solid var(--panel-2); font-size:14px; vertical-align:middle; }
+  .qty { display:inline-flex; align-items:center; gap:8px; }
+  .qty button { width:26px; height:26px; border-radius:5px; background:var(--panel-2); border:1px solid var(--border); color:var(--text); cursor:pointer; }
+  .total-line { display:flex; justify-content:space-between; padding:6px 0; font-size:14px; }
+  .total-line.grand { font-size:17px; font-weight:700; border-top:1px solid var(--border); margin-top:8px; padding-top:12px; }
+  .total-line .muted { color:var(--muted); }
+  .pay-row { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--panel-2); }
+  .pay-row input[type=number] { width:120px; }
+  .badge { font-size:11px; padding:3px 8px; border-radius:5px; font-weight:600; }
+  .badge.PROMOCIONAL { background:rgba(59,130,246,.15); color:var(--accent); }
+  .badge.TROCA { background:rgba(245,158,11,.15); color:var(--warn); }
+  #msg-erro { background:rgba(239,68,68,.12); border:1px solid var(--err); color:#fca5a5; padding:12px 14px; border-radius:8px; margin-bottom:16px; display:none; font-size:13.5px; }
+  .empty { color:var(--muted); font-size:13.5px; padding:16px 0; }
+  .confirmacao { text-align:center; padding:40px 20px; }
+  .confirmacao .check { width:56px; height:56px; border-radius:50%; background:rgba(16,185,129,.15); color:var(--ok); display:flex; align-items:center; justify-content:center; font-size:28px; margin:0 auto 16px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Hardware Store</h1>
+  <div class="steps" id="steps">
+    <span data-cy="step-carrinho">1. Carrinho</span> ›
+    <span data-cy="step-checkout">2. Finalizar Compra</span> ›
+    <span data-cy="step-confirmacao">3. Confirmação</span>
+  </div>
+</header>
+<main>
+  <div id="msg-erro" data-cy="msg-erro"></div>
+  <div id="view-container"></div>
+</main>
+
+<script>
+// ---------------------------------------------------------------------
+// CLIENTE_ID fixo: este front demonstra o fluxo de vendas de um unico
+// cliente (o Joao Silva semeado pelo DataSeeder), sem tela de login - o
+// projeto nao tem autenticacao (fora de escopo do DRS para esta fase).
+// ---------------------------------------------------------------------
+const CLIENTE_ID = 1;
+
+const API_BASE = (() => {
+  const { hostname, protocol, port } = window.location;
+  if (hostname.endsWith('.github.dev')) {
+    const p = port || '5500';
+    const novoHost = hostname.replace(`-${p}.`, '-8080.');
+    return `${protocol}//${novoHost}/api`;
+  }
+  return 'http://localhost:8080/api';
+})();
+
+const state = {
+  view: 'carrinho',
+  produtos: [],
+  carrinho: { itens: [], total: 0 },
+  cliente: { enderecos: [], cartoes: [] },
+  cupons: [],
+  mostrarNovoEndereco: false,
+  mostrarNovoCartao: false,
+  enderecoSelecionado: null,
+  cartoesSelecionados: {},   // { cartaoId: valorString }
+  cupomsSelecionados: new Set(),
+  pedidoFinalizado: null,
+};
+
+const FRETE = 24.90;
+
+function fmt(v) {
+  return (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+async function api(path, options = {}) {
+  const resp = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+  });
+  const texto = await resp.text();
+  const corpo = texto ? JSON.parse(texto) : null;
+  if (!resp.ok) {
+    const msg = (corpo && (corpo.mensagem || corpo.message)) || `Erro ${resp.status}`;
+    throw new Error(msg);
+  }
+  return corpo;
+}
+
+function mostrarErro(msg) {
+  const el = document.getElementById('msg-erro');
+  el.textContent = msg;
+  el.style.display = 'block';
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function esconderErro() {
+  document.getElementById('msg-erro').style.display = 'none';
+}
+
+async function carregarTudo() {
+  const [produtos, carrinho, cliente, cupons] = await Promise.all([
+    api('/produtos'),
+    api(`/clientes/${CLIENTE_ID}/carrinho`),
+    api(`/clientes/${CLIENTE_ID}`),
+    api(`/clientes/${CLIENTE_ID}/cupons`),
+  ]);
+  state.produtos = produtos;
+  state.carrinho = carrinho;
+  state.cliente = cliente;
+  state.cupons = cupons;
+}
+
+async function render() {
+  document.querySelectorAll('#steps span').forEach(s => s.classList.remove('active'));
+  const map = { carrinho: 'step-carrinho', checkout: 'step-checkout', confirmacao: 'step-confirmacao' };
+  document.querySelector(`[data-cy=${map[state.view]}]`).classList.add('active');
+
+  const container = document.getElementById('view-container');
+  if (state.view === 'carrinho') container.innerHTML = viewCarrinho();
+  else if (state.view === 'checkout') container.innerHTML = viewCheckout();
+  else container.innerHTML = viewConfirmacao();
+}
+
+// ========================================================================
+// VIEW: CARRINHO (RF0031, RF0032, RN0031)
+// ========================================================================
+function viewCarrinho() {
+  const itensCarrinho = state.carrinho.itens || [];
+  return `
+    <div class="row">
+      <div class="col" style="flex:1.3">
+        <div class="card">
+          <h2>Produtos disponíveis</h2>
+          <table>
+            <tr><th>Produto</th><th>Categoria</th><th>Preço</th><th>Estoque</th><th></th></tr>
+            ${state.produtos.map(p => `
+              <tr data-cy="produto-row" data-id="${p.id}">
+                <td>${esc(p.nome)}</td>
+                <td style="color:var(--muted)">${esc(p.categoria)}</td>
+                <td>${fmt(p.precoVenda)}</td>
+                <td style="color:var(--muted)" data-cy="produto-estoque">${p.quantidadeDisponivel}</td>
+                <td>
+                  <input type="number" min="1" value="1" data-cy="input-qtd-produto" id="qtd-${p.id}" style="width:64px; display:inline-block;">
+                  <button class="secondary" data-cy="btn-adicionar-carrinho" onclick="adicionarAoCarrinho(${p.id})">+ Carrinho</button>
+                </td>
+              </tr>
+            `).join('')}
+          </table>
+        </div>
+      </div>
+      <div class="col" style="flex:1">
+        <div class="card">
+          <h2>Seu Carrinho</h2>
+          ${itensCarrinho.length === 0 ? '<div class="empty" data-cy="carrinho-vazio">Nenhum item no carrinho.</div>' : `
+            <table>
+              <tr><th>Item</th><th>Qtd.</th><th></th></tr>
+              ${itensCarrinho.map(i => `
+                <tr data-cy="carrinho-item" data-id="${i.id}">
+                  <td>${esc(i.produtoNome)}<br><span style="color:var(--muted); font-size:12px;">${fmt(i.precoUnitario)} un.</span></td>
+                  <td>
+                    <div class="qty">
+                      <button data-cy="btn-diminuir-qtd" onclick="alterarQtd(${i.id}, ${i.quantidade - 1})">−</button>
+                      <span data-cy="qtd-item">${i.quantidade}</span>
+                      <button data-cy="btn-aumentar-qtd" onclick="alterarQtd(${i.id}, ${i.quantidade + 1})">+</button>
+                    </div>
+                  </td>
+                  <td><button class="danger" data-cy="btn-remover-item" onclick="removerItem(${i.id})">Remover</button></td>
+                </tr>
+              `).join('')}
+            </table>
+          `}
+          <div class="total-line grand">
+            <span>Total</span>
+            <span data-cy="carrinho-total">${fmt(state.carrinho.total)}</span>
+          </div>
+          <button class="action" style="width:100%; margin-top:10px;" data-cy="btn-iniciar-compra"
+            ${itensCarrinho.length === 0 ? 'disabled' : ''} onclick="irParaCheckout()">
+            Iniciar Compra
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function adicionarAoCarrinho(produtoId) {
+  esconderErro();
+  const qtd = Number(document.getElementById(`qtd-${produtoId}`).value) || 1;
+  try {
+    state.carrinho = await api(`/clientes/${CLIENTE_ID}/carrinho/itens`, {
+      method: 'POST',
+      body: JSON.stringify({ produtoId, quantidade: qtd }),
+    });
+    await render();
+  } catch (e) { mostrarErro(e.message); }
+}
+
+async function alterarQtd(itemId, novaQtd) {
+  esconderErro();
+  if (novaQtd <= 0) return removerItem(itemId);
+  try {
+    state.carrinho = await api(`/clientes/${CLIENTE_ID}/carrinho/itens/${itemId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ quantidade: novaQtd }),
+    });
+    await render();
+  } catch (e) { mostrarErro(e.message); }
+}
+
+async function removerItem(itemId) {
+  esconderErro();
+  try {
+    state.carrinho = await api(`/clientes/${CLIENTE_ID}/carrinho/itens/${itemId}`, { method: 'DELETE' });
+    await render();
+  } catch (e) { mostrarErro(e.message); }
+}
+
+function irParaCheckout() {
+  esconderErro();
+  state.view = 'checkout';
+  render();
+}
+
+// ========================================================================
+// VIEW: CHECKOUT (RF0033-RF0038, RN0023-RN0025, RN0033-RN0036)
+// ========================================================================
+function valorProdutos() { return state.carrinho.total; }
+function valorTotalCompra() { return valorProdutos() + FRETE; }
+
+function somaCartoesSelecionados() {
+  return Object.values(state.cartoesSelecionados).reduce((s, v) => s + (Number(v) || 0), 0);
+}
+function somaCuponsSelecionados() {
+  return [...state.cupomsSelecionados].reduce((s, id) => {
+    const c = state.cupons.find(c => c.id === id);
+    return s + (c ? Number(c.valor) : 0);
+  }, 0);
+}
+
+function viewCheckout() {
+  const enderecos = state.cliente.enderecos || [];
+  const cartoes = state.cliente.cartoes || [];
+  const restante = Math.max(0, valorTotalCompra() - somaCuponsSelecionados());
+  const pago = somaCartoesSelecionados() + somaCuponsSelecionados();
+
+  return `
+    <div class="row">
+      <div class="col" style="flex:1.4">
+        <div class="card">
+          <h2>1. Endereço de Entrega</h2>
+          ${enderecos.map(e => `
+            <label style="display:flex; align-items:center; gap:8px; font-size:14px; color:var(--text); margin:8px 0;">
+              <input type="radio" name="endereco" data-cy="radio-endereco" value="${e.id}"
+                ${state.enderecoSelecionado === e.id ? 'checked' : ''}
+                onchange="state.enderecoSelecionado=${e.id}; render();" style="width:auto;">
+              ${esc(e.apelido)} — ${esc(e.tipoLogradouro)} ${esc(e.logradouro)}, ${esc(e.numero)} - ${esc(e.cidade)}/${esc(e.estado)}
+            </label>
+          `).join('') || '<div class="empty">Nenhum endereço cadastrado.</div>'}
+
+          ${state.mostrarNovoEndereco ? formNovoEndereco() : `
+            <button class="secondary" data-cy="btn-novo-endereco" onclick="state.mostrarNovoEndereco=true; render();">+ Novo Endereço</button>
+          `}
+        </div>
+
+        <div class="card">
+          <h2>2. Forma de Pagamento</h2>
+          <h3>Cartões de crédito (RN0034/RN0035)</h3>
+          ${cartoes.map(c => `
+            <div class="pay-row" data-cy="pagamento-cartao-row" data-id="${c.id}">
+              <input type="checkbox" data-cy="chk-cartao" ${state.cartoesSelecionados[c.id] !== undefined ? 'checked' : ''}
+                onchange="toggleCartao(${c.id}, this.checked)">
+              <span style="flex:1;">${esc(c.bandeira)} final ${esc(c.ultimosQuatroDigitos)} (${esc(c.titular)})</span>
+              ${state.cartoesSelecionados[c.id] !== undefined ? `
+                <input type="number" step="0.01" min="0" placeholder="Valor" data-cy="input-valor-cartao"
+                  value="${state.cartoesSelecionados[c.id]}" oninput="state.cartoesSelecionados[${c.id}]=this.value; render();">
+              ` : ''}
+            </div>
+          `).join('') || '<div class="empty">Nenhum cartão cadastrado.</div>'}
+          ${state.mostrarNovoCartao ? formNovoCartao() : `
+            <button class="secondary" style="margin-top:12px;" data-cy="btn-novo-cartao" onclick="state.mostrarNovoCartao=true; render();">+ Novo Cartão</button>
+          `}
+
+          <h3 style="margin-top:20px;">Cupons (RN0033/RN0036)</h3>
+          ${state.cupons.map(c => `
+            <div class="pay-row" data-cy="cupom-row" data-id="${c.id}">
+              <input type="checkbox" data-cy="chk-cupom" ${state.cupomsSelecionados.has(c.id) ? 'checked' : ''}
+                onchange="toggleCupom(${c.id}, this.checked)">
+              <span style="flex:1;">${esc(c.codigo)} <span class="badge ${c.tipo}">${c.tipo}</span></span>
+              <span>${fmt(c.valor)}</span>
+            </div>
+          `).join('') || '<div class="empty">Nenhum cupom disponível.</div>'}
+        </div>
+      </div>
+
+      <div class="col" style="flex:1">
+        <div class="card">
+          <h2>Resumo da Compra</h2>
+          <div class="total-line"><span class="muted">Produtos</span><span>${fmt(valorProdutos())}</span></div>
+          <div class="total-line"><span class="muted">Frete</span><span data-cy="frete-valor">${fmt(FRETE)}</span></div>
+          <div class="total-line"><span class="muted">Cupons</span><span>− ${fmt(somaCuponsSelecionados())}</span></div>
+          <div class="total-line"><span class="muted">Cartões</span><span>${fmt(somaCartoesSelecionados())}</span></div>
+          <div class="total-line grand"><span>Total a pagar</span><span data-cy="total-compra">${fmt(valorTotalCompra())}</span></div>
+          <div class="total-line" style="color:${pago >= valorTotalCompra() ? 'var(--ok)' : 'var(--warn)'};">
+            <span>Ainda falta cobrir</span><span data-cy="valor-restante">${fmt(Math.max(0, valorTotalCompra() - pago))}</span>
+          </div>
+          <button class="action" style="width:100%; margin-top:14px;" data-cy="btn-finalizar-compra" onclick="finalizarCompra()">
+            Confirmar Pagamento
+          </button>
+          <button class="secondary" style="width:100%; margin-top:8px;" onclick="state.view='carrinho'; render();">Voltar ao carrinho</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function formNovoEndereco() {
+  return `
+    <div class="card" style="background:var(--panel-2); margin-top:12px;">
+      <h3>Novo Endereço</h3>
+      <label>Apelido *</label><input id="ne-apelido" data-cy="i-ne-apelido">
+      <label>Tipo de residência *</label><input id="ne-tipores" data-cy="i-ne-tipores" placeholder="Casa">
+      <label>Tipo de logradouro *</label><input id="ne-tipolog" data-cy="i-ne-tipolog" placeholder="Rua">
+      <label>Logradouro *</label><input id="ne-logradouro" data-cy="i-ne-logradouro">
+      <label>Número *</label><input id="ne-numero" data-cy="i-ne-numero">
+      <label>Bairro *</label><input id="ne-bairro" data-cy="i-ne-bairro">
+      <label>CEP *</label><input id="ne-cep" data-cy="i-ne-cep">
+      <label>Cidade *</label><input id="ne-cidade" data-cy="i-ne-cidade">
+      <label>Estado *</label><input id="ne-estado" data-cy="i-ne-estado">
+      <label>País *</label><input id="ne-pais" data-cy="i-ne-pais" value="Brasil">
+      <label style="display:flex; align-items:center; gap:6px; margin-top:12px;">
+        <input type="checkbox" id="ne-cobranca" checked style="width:auto;"> Usar como cobrança
+      </label>
+      <label style="display:flex; align-items:center; gap:6px;">
+        <input type="checkbox" id="ne-entrega" checked style="width:auto;"> Usar como entrega
+      </label>
+      <button class="action" style="margin-top:12px;" data-cy="btn-salvar-endereco" onclick="salvarNovoEndereco()">Salvar Endereço</button>
+      <button class="secondary" style="margin-top:12px;" onclick="state.mostrarNovoEndereco=false; render();">Cancelar</button>
+    </div>
+  `;
+}
+
+function formNovoCartao() {
+  return `
+    <div class="card" style="background:var(--panel-2); margin-top:12px;">
+      <h3>Novo Cartão</h3>
+      <label>Número *</label><input id="nc-numero" data-cy="i-nc-numero" placeholder="Somente dígitos">
+      <label>Bandeira *</label>
+      <select id="nc-bandeira" data-cy="i-nc-bandeira">
+        <option value="VISA">VISA</option><option value="MASTERCARD">MASTERCARD</option>
+        <option value="ELO">ELO</option><option value="AMEX">AMEX</option>
+      </select>
+      <label>Nome impresso *</label><input id="nc-titular" data-cy="i-nc-titular">
+      <label>Código de segurança *</label><input id="nc-cvv" data-cy="i-nc-cvv" maxlength="4">
+      <button class="action" style="margin-top:12px;" data-cy="btn-salvar-cartao" onclick="salvarNovoCartao()">Salvar Cartão</button>
+      <button class="secondary" style="margin-top:12px;" onclick="state.mostrarNovoCartao=false; render();">Cancelar</button>
+    </div>
+  `;
+}
+
+function toggleCartao(cartaoId, marcado) {
+  if (marcado) state.cartoesSelecionados[cartaoId] = '';
+  else delete state.cartoesSelecionados[cartaoId];
+  render();
+}
+function toggleCupom(cupomId, marcado) {
+  if (marcado) state.cupomsSelecionados.add(cupomId);
+  else state.cupomsSelecionados.delete(cupomId);
+  render();
+}
+
+// RF0035/RN0023 - novo endereço durante a compra, incorporado ao perfil.
+async function salvarNovoEndereco() {
+  esconderErro();
+  const g = id => document.getElementById(id).value;
+  try {
+    const novo = await api(`/clientes/${CLIENTE_ID}/enderecos`, {
+      method: 'POST',
+      body: JSON.stringify({
+        apelido: g('ne-apelido'), tipoResidencia: g('ne-tipores'), tipoLogradouro: g('ne-tipolog'),
+        logradouro: g('ne-logradouro'), numero: g('ne-numero'), bairro: g('ne-bairro'), cep: g('ne-cep'),
+        cidade: g('ne-cidade'), estado: g('ne-estado'), pais: g('ne-pais'),
+        cobranca: document.getElementById('ne-cobranca').checked,
+        entrega: document.getElementById('ne-entrega').checked,
+      }),
+    });
+    state.cliente = await api(`/clientes/${CLIENTE_ID}`);
+    state.enderecoSelecionado = novo.id;
+    state.mostrarNovoEndereco = false;
+    await render();
+  } catch (e) { mostrarErro(e.message); }
+}
+
+// RF0036/RN0024/RN0025 - novo cartão durante a compra, incorporado ao perfil.
+async function salvarNovoCartao() {
+  esconderErro();
+  const g = id => document.getElementById(id).value;
+  try {
+    const novo = await api(`/clientes/${CLIENTE_ID}/cartoes`, {
+      method: 'POST',
+      body: JSON.stringify({
+        numero: g('nc-numero'), bandeira: g('nc-bandeira'), titular: g('nc-titular'), cvv: g('nc-cvv'),
+      }),
+    });
+    state.cliente = await api(`/clientes/${CLIENTE_ID}`);
+    state.cartoesSelecionados[novo.id] = '';
+    state.mostrarNovoCartao = false;
+    await render();
+  } catch (e) { mostrarErro(e.message); }
+}
+
+// RF0038 - finaliza a compra.
+async function finalizarCompra() {
+  esconderErro();
+  if (!state.enderecoSelecionado) return mostrarErro('Selecione um endereço de entrega.');
+
+  const cartoes = Object.entries(state.cartoesSelecionados)
+    .filter(([, valor]) => Number(valor) > 0)
+    .map(([cartaoId, valor]) => ({ cartaoId: Number(cartaoId), valor: Number(valor) }));
+  const cupomIds = [...state.cupomsSelecionados];
+
+  try {
+    const pedido = await api(`/clientes/${CLIENTE_ID}/pedidos`, {
+      method: 'POST',
+      body: JSON.stringify({ enderecoId: state.enderecoSelecionado, cartoes, cupomIds }),
+    });
+    state.pedidoFinalizado = pedido;
+    state.view = 'confirmacao';
+    // reseta selecoes de pagamento para a proxima compra
+    state.cartoesSelecionados = {};
+    state.cupomsSelecionados = new Set();
+    state.enderecoSelecionado = null;
+    await render();
+  } catch (e) { mostrarErro(e.message); }
+}
+
+// ========================================================================
+// VIEW: CONFIRMAÇÃO
+// ========================================================================
+function viewConfirmacao() {
+  const p = state.pedidoFinalizado;
+  return `
+    <div class="card confirmacao">
+      <div class="check">✓</div>
+      <h2 style="font-size:20px;">Pedido registrado!</h2>
+      <p style="color:var(--muted);">Número do pedido: <strong data-cy="pedido-id">#${p.id}</strong></p>
+      <p style="color:var(--muted);">Status: <strong data-cy="pedido-status" style="color:var(--warn);">${p.status}</strong></p>
+      <p style="font-size:20px; margin-top:10px;">Total: <strong data-cy="pedido-total">${fmt(p.valorTotal)}</strong></p>
+      <button class="action" style="margin-top:20px;" data-cy="btn-nova-compra" onclick="reiniciar()">Fazer nova compra</button>
+    </div>
+  `;
+}
+
+async function reiniciar() {
+  state.view = 'carrinho';
+  state.pedidoFinalizado = null;
+  await carregarTudo();
+  await render();
+}
+
+function esc(t) {
+  return String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ---------------------------------------------------------------------
+(async function start() {
+  try {
+    await carregarTudo();
+    await render();
+  } catch (e) {
+    mostrarErro('Não foi possível carregar os dados da API (' + API_BASE + '). ' + e.message);
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+# Java / Maven
+backend/target/
+*.class
+*.log
+
+# Node / Cypress
+node_modules/
+cypress/screenshots/
+cypress/videos/
+cypress/downloads/
+
+# IDEs
+.idea/
+*.iml
+.vscode/*
+!.vscode/tasks.json
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# SO
+.DS_Store
+Thumbs.db

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  POM agregador: existe para que o IntelliJ / VS Code reconheçam o backend
+  automaticamente ao abrir a pasta raiz do projeto. Todo o código Java e as
+  dependências ficam em backend/pom.xml.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.hardwarestore</groupId>
+    <artifactId>hardware-store-clientes</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+    <name>hardware-store-clientes</name>
+
+    <modules>
+        <module>backend</module>
+    </modules>
+</project>
