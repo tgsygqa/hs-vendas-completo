@@ -31,7 +31,7 @@ public class ProdutoResponseDTO {
                 p.getCategoria(),
                 p.getFornecedor(),
                 p.getPrecoVenda(),
-                p.getQuantidadeEstoque() - p.getQuantidadeReservada()
+                p.getQuantidadeEstoque()
         );
     }
 }
