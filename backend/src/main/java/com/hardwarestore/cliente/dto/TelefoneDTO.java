@@ -20,7 +20,7 @@ public class TelefoneDTO {
     @NotNull(message = "O tipo de telefone e obrigatorio.")
     private TipoTelefone tipo;
 
-    @NotNull(message = "O DDD e obrigatorio.")
+    @NotNull(message = "O DDD é obrigatorio!")
     @Pattern(regexp = "\\d{2}", message = "DDD invalido. Utilize 2 digitos.")
     private String ddd;
 

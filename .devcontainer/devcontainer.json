@@ -1,15 +1,15 @@
 {
   "name": "Hardware Store - Clientes",
-  "remoteUser": "root",
   "image": "mcr.microsoft.com/devcontainers/java:1-17-bookworm",
   "features": {
-    "ghcr.io/devcontainers/features/java:1": { "version": "none", "installMaven": "true" },
-    "ghcr.io/devcontainers/features/node:1": { "version": "20" }
+    "ghcr.io/devcontainers/features/java:1": { "version": "none", "installMaven": true },
+    "ghcr.io/devcontainers/features/node:2.1.1": { "version": "20" }
   },
+  "remoteUser": "root",
   "forwardPorts": [5500, 8080, 5432],
   "portsAttributes": {
     "5500": { "label": "Frontend (V08.html)", "onAutoForward": "notify" },
-    "8080": { "label": "Backend (Spring Boot)", "onAutoForward": "notify" },
+    "8080": { "label": "Backend (Spring Boot)", "onAutoForward": "notify", "visibility": "public" },
     "5432": { "label": "PostgreSQL", "onAutoForward": "silent" }
   },
   "postCreateCommand": "bash .devcontainer/post-create.sh",
