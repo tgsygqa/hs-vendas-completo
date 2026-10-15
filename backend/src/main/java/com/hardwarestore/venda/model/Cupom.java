@@ -24,13 +24,11 @@ import java.math.BigDecimal;
 /**
  * RF0037 - cupom de troca ou promocional usado como forma de pagamento.
  *
- * O processo que GERA um cupom de troca a partir de uma devolucao fisica
- * de item (RF0045) esta fora do escopo desta entrega - por isso os cupons
- * usados na demonstracao sao pre-carregados diretamente na base (ver
- * CupomSeeder), como as proprias instrucoes do professor autorizam. A
- * unica geracao de cupom que ESTA dentro do escopo e a de troco (RN0036),
- * feita pelo proprio PedidoService quando o valor dos cupons usados supera
- * o valor da compra.
+ * Um cupom nasce de tres formas: carregado pelo CupomSeeder (cupons
+ * promocionais e de troca da demonstracao), como cupom de TROCO quando os
+ * cupons usados superam o valor da compra (RN0036, PedidoService.finalizarCompra)
+ * ou como cupom de TROCA gerado ao confirmar o recebimento dos itens
+ * devolvidos (RF0045, PedidoService.confirmarRecebimentoTroca).
  *
  * cliente nulo = cupom promocional de uso geral, nao vinculado a ninguem
  * especifico. Cupom de troca sempre pertence a um cliente.
@@ -75,3 +73,4 @@ public class Cupom {
     @JsonBackReference
     private Pedido pedidoUtilizacao;
 }
+

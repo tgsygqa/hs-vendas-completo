@@ -223,8 +223,13 @@ public class ClienteService {
                 .build();
 
         cliente.getEnderecos().add(endereco);
-        clienteRepository.save(cliente);
-        return EnderecoResponseDTO.fromEntity(endereco);
+        clienteRepository.saveAndFlush(cliente);
+        // save() faz merge: o endereco que o banco numerou (com id) e a copia gerenciada
+        // que passa a ocupar o lugar de "endereco" na lista - devolver o objeto original
+        // mandaria "id": null para o front, que precisa do id para selecionar o endereco
+        // novo na compra (RF0035).
+        Endereco persistido = cliente.getEnderecos().get(cliente.getEnderecos().size() - 1);
+        return EnderecoResponseDTO.fromEntity(persistido);
     }
 
     // RN0021/RN0022 - cliente deve manter ao menos um endereco de cobranca e
@@ -283,8 +288,10 @@ public class ClienteService {
                 .build();
 
         cliente.getCartoes().add(cartao);
-        clienteRepository.save(cliente);
-        return CartaoResponseDTO.fromEntity(cartao);
+        clienteRepository.saveAndFlush(cliente);
+        // Mesmo motivo de adicionarEndereco: o id esta na copia gerenciada (RF0036).
+        CartaoCredito persistido = cliente.getCartoes().get(cliente.getCartoes().size() - 1);
+        return CartaoResponseDTO.fromEntity(persistido);
     }
 
     @Transactional

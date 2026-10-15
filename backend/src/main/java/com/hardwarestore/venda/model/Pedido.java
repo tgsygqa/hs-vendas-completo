@@ -29,11 +29,13 @@ import java.util.List;
 
 /**
  * Entidade central do modulo de Vendas - nasce quando o carrinho e
- * finalizado (RF0038). Nesta entrega (fluxo de sucesso, instrucoes do
- * professor para 06/10) o pedido nasce e PARA em EM_PROCESSAMENTO: a
- * validacao de pagamento e os estados seguintes (RN0037, RN0038, RF0039,
- * RF0040, baixa em estoque) estao fora do escopo desta fase e serao
- * retomados na entrega de 20/10.
+ * finalizado (RF0038) e percorre todos os estados de StatusPedido: nasce
+ * em EM_PROCESSAMENTO, passa pela validacao de pagamento (RN0037/RN0038,
+ * -> APROVADA com baixa em estoque RF0053, ou REPROVADA), despacho e
+ * entrega (RF0039/RF0040, -> EM_TRANSPORTE -> ENTREGUE) e, a partir de
+ * ENTREGUE, pelo processo de troca completo (RF0041-RF0045, detalhado nas
+ * solicitacoes em solicitacoesTroca: EM_TROCA -> TROCA_AUTORIZADA ->
+ * TROCADO).
  *
  * Esta classe substitui a versao minima que antes vivia em
  * com.hardwarestore.cliente.model.Pedido, criada so para o RF0025 (consulta
@@ -46,8 +48,7 @@ import java.util.List;
  * Isso significa que, se o cliente editar esse endereco depois, pedidos
  * antigos passam a exibir o endereco editado. O jeito correto para
  * producao seria copiar os campos do endereco para o pedido no momento da
- * compra; ficou de fora por tempo, e pode ser a primeira melhoria a fazer
- * se sobrar tempo antes do dia 20/10.
+ * compra; ficou de fora por simplicidade e e a primeira melhoria a fazer.
  */
 @Entity
 @Table(name = "pedidos")
@@ -93,6 +94,11 @@ public class Pedido {
     @Column(nullable = false)
     private LocalDateTime dataCriacao;
 
+    // RN0038 - quando o pagamento e reprovado, guarda o motivo devolvido pela
+    // "operadora" (ver PagamentoGatewayService) para exibir ao cliente.
+    @Column(length = 500)
+    private String motivoReprovacao;
+
     // RF0036/RN0034 - um pedido pode ser pago com mais de um cartao, cada
     // um com seu proprio valor.
     @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -109,4 +115,13 @@ public class Pedido {
     @JsonManagedReference
     @Builder.Default
     private List<Cupom> cuponsUtilizados = new ArrayList<>();
+
+    // RF0041-RF0045 - solicitacoes de troca abertas para este pedido (um
+    // pedido ENTREGUE pode ter mais de uma, uma por vez em aberto na
+    // pratica, mas a lista fica aberta para o historico completo).
+    @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
+    @Builder.Default
+    private List<SolicitacaoTroca> solicitacoesTroca = new ArrayList<>();
 }
+

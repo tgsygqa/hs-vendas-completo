@@ -16,8 +16,11 @@ public class CupomResponseDTO {
     private String codigo;
     private String tipo;
     private BigDecimal valor;
+    // true = ja foi gasto numa compra; false = disponivel (ex.: cupom de troco gerado pela RN0036).
+    private boolean utilizado;
 
     public static CupomResponseDTO fromEntity(Cupom c) {
-        return new CupomResponseDTO(c.getId(), c.getCodigo(), c.getTipo().name(), c.getValor());
+        return new CupomResponseDTO(c.getId(), c.getCodigo(), c.getTipo().name(), c.getValor(), c.isUtilizado());
     }
 }
+

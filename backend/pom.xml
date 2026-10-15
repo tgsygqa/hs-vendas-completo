@@ -50,6 +50,14 @@
             <artifactId>spring-security-crypto</artifactId>
         </dependency>
 
+        <!-- Banco PADRAO: H2 em memoria (nada para instalar). O PostgreSQL
+             continua disponivel pelo perfil "postgres" (ver
+             application-postgres.properties). -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>

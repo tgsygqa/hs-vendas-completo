@@ -12,10 +12,9 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 
 /**
- * RF0037 - semeia cupons prontos para a demonstracao. O processo que GERA
- * um cupom de troca a partir de uma devolucao fisica (RF0045) esta fora do
- * escopo desta entrega; as instrucoes do professor autorizam
- * explicitamente carregar os cupons direto na base para a apresentacao.
+ * RF0037 - semeia cupons prontos para a demonstracao (dois promocionais e
+ * dois de troca do Joao Silva). Os cupons de troca que o sistema gera sozinho
+ * (RN0036 e RF0045) nascem durante a execucao, nao aqui.
  *
  * @Order(3) - depois do ProdutoSeeder (1) e do DataSeeder (2), porque os
  * cupons de troca abaixo pertencem ao Joao Silva, que so existe depois que

@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 public class ItemPedidoResponseDTO {
 
+    private Long id;
     private Long produtoId;
     private String produtoNome;
     private Integer quantidade;
@@ -21,6 +22,7 @@ public class ItemPedidoResponseDTO {
     public static ItemPedidoResponseDTO fromEntity(ItemPedido i) {
         BigDecimal subtotal = i.getPrecoUnitario().multiply(BigDecimal.valueOf(i.getQuantidade()));
         return new ItemPedidoResponseDTO(
+                i.getId(),
                 i.getProduto().getId(),
                 i.getProduto().getNome(),
                 i.getQuantidade(),
@@ -29,3 +31,4 @@ public class ItemPedidoResponseDTO {
         );
     }
 }
+

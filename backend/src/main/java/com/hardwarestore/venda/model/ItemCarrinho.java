@@ -16,13 +16,18 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
+
 /**
  * RF0031/RF0032 - um produto e a quantidade escolhida dentro do carrinho de
  * um cliente. RN0031 - a quantidade so e aceita se houver estoque
- * disponivel no momento da adicao (ver CarrinhoService).
+ * disponivel no momento da adicao.
  *
- * Nao ha campo de bloqueio/expiracao aqui: RN0044 e RN0045 estao
- * explicitamente fora do escopo desta entrega (instrucoes do professor).
+ * RN0044/RN0045 - bloqueadoAte registra ate quando a quantidade reservada
+ * aqui fica indisponivel para outros clientes. O CarrinhoService o
+ * preenche e renova a cada item incluido (o prazo e relativo ao ultimo item) e
+ * o CarrinhoExpiracaoService/Job libera os itens vencidos (ver tambem
+ * ItemCarrinhoExpirado, para RNF0042).
  */
 @Entity
 @Table(name = "itens_carrinho")
@@ -48,4 +53,8 @@ public class ItemCarrinho {
 
     @Column(nullable = false)
     private Integer quantidade;
+
+    // RN0044 - prazo ate quando a quantidade deste item fica bloqueada em
+    // estoque para outros clientes (ver javadoc da classe).
+    private LocalDateTime bloqueadoAte;
 }

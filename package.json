@@ -2,17 +2,28 @@
   "name": "hardware-store-clientes",
   "version": "1.0.0",
   "private": true,
-  "description": "Hardware Store - CRUD de Clientes (frontend, backend Spring Boot e testes Cypress)",
+  "description": "Hardware Store - Clientes e Vendas (frontend, backend Spring Boot e testes Cypress)",
   "scripts": {
     "start:front": "http-server frontend -p 5500 -c-1 --silent",
-    "start:back": "mvn -f backend/pom.xml spring-boot:run",
+    "start:back": "node scripts/mvn.js spring-boot:run",
+    "start:back:demo": "node scripts/mvn.js spring-boot:run -Dspring-boot.run.profiles=demo",
+    "start:back:postgres": "node scripts/mvn.js spring-boot:run -Dspring-boot.run.profiles=postgres",
+    "test:backend": "node scripts/mvn.js test",
+    "demo:reset": "node scripts/demo-reset.js",
+    "demo:cliente2": "node scripts/demo-cliente2.js",
+    "demo:estoque": "node scripts/demo-estoque.js",
     "cy:open": "cypress open",
     "cy:run": "cypress run",
-    "test:e2e": "start-server-and-test start:front http://localhost:5500/V08.html cy:run"
+    "cy:run:cliente": "cypress run --spec \"cypress/e2e/cliente/**/*.cy.js\"",
+    "cy:run:vendas": "cypress run --spec \"cypress/e2e/vendas/**/*.cy.js\"",
+    "test:cliente": "node scripts/run-with-servers.js cliente",
+    "test:vendas": "node scripts/run-with-servers.js vendas",
+    "test:vendas:open": "node scripts/run-with-servers.js vendas-open",
+    "test:e2e": "node scripts/run-with-servers.js tudo",
+    "docs:matriz": "node scripts/gerar-matriz.js"
   },
   "devDependencies": {
     "cypress": "^13.17.0",
-    "http-server": "^14.1.1",
-    "start-server-and-test": "^2.1.5"
+    "http-server": "^14.1.1"
   }
 }

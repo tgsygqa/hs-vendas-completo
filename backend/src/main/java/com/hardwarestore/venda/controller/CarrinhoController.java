@@ -59,4 +59,21 @@ public class CarrinhoController {
     public ResponseEntity<CarrinhoResponseDTO> removerItem(@PathVariable Long clienteId, @PathVariable Long itemId) {
         return ResponseEntity.ok(carrinhoService.removerItem(clienteId, itemId));
     }
+
+    // RNF0042 - devolve ao carrinho um item que tinha expirado -> 200 OK /
+    // 409 (estoque insuficiente)
+    @PostMapping("/expirados/{expiradoId}/readicionar")
+    public ResponseEntity<CarrinhoResponseDTO> readicionarExpirado(
+            @PathVariable Long clienteId, @PathVariable Long expiradoId
+    ) {
+        return ResponseEntity.ok(carrinhoService.readicionarExpirado(clienteId, expiradoId));
+    }
+
+    // RNF0042 - dispensa o aviso de item expirado sem readicionar -> 200 OK
+    @DeleteMapping("/expirados/{expiradoId}")
+    public ResponseEntity<CarrinhoResponseDTO> dispensarExpirado(
+            @PathVariable Long clienteId, @PathVariable Long expiradoId
+    ) {
+        return ResponseEntity.ok(carrinhoService.dispensarExpirado(clienteId, expiradoId));
+    }
 }

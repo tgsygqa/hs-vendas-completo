@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Hardware Store — Administração</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="logo">🛒</span>Hardware<span>Store</span></div>
+  <div id="nav-container"></div>
+  <div class="right">
+    <span class="tag-perfil">PERFIL: ADMINISTRADOR</span>
+    <button class="secondary sm" data-cy="btn-atualizar" onclick="atualizar()">↻ Atualizar</button>
+  </div>
+</header>
+
+<main>
+  <div id="msg-erro" data-cy="msg-erro"></div>
+  <div id="msg-sucesso" data-cy="msg-sucesso"></div>
+
+  <div class="tabs">
+    <button data-cy="tab-pedidos" id="tab-pedidos" onclick="abrirAba('pedidos')">📦 Pedidos</button>
+    <button data-cy="tab-trocas" id="tab-trocas" onclick="abrirAba('trocas')">🔁 Trocas <span class="badge auto" data-cy="trocas-pendentes">0</span></button>
+    <button data-cy="tab-estoque" id="tab-estoque" onclick="abrirAba('estoque')">🏷️ Estoque</button>
+  </div>
+
+  <div id="view-container"></div>
+</main>
+
+<script src="shared.js"></script>
+<script>
+// ---------------------------------------------------------------------
+// Painel do ADMINISTRADOR (CDU02). O projeto nao tem autenticacao (fora do
+// escopo do DRS), entao "perfil de administrador" e so esta tela separada.
+//
+//   Pedidos : validar pagamento (RN0037/RN0038), despachar (RF0039/RN0039),
+//             confirmar entrega (RF0040/RN0040)
+//   Trocas  : visualizar (RF0043), autorizar (RF0042), recusar,
+//             confirmar recebimento + retorno ao estoque (RF0044/RF0054),
+//             geracao do cupom de troca (RF0045)
+//   Estoque : conferir a baixa (RF0053) e a reentrada (RF0054)
+// ---------------------------------------------------------------------
+const STATUS = ['EM_PROCESSAMENTO', 'APROVADA', 'REPROVADA', 'EM_TRANSPORTE', 'ENTREGUE', 'EM_TROCA', 'TROCA_AUTORIZADA', 'TROCADO'];
+
+const state = {
+  aba: 'pedidos',
+  filtroStatus: '',
+  pedidos: [],
+  trocas: [],
+  produtos: [],
+  recusandoTrocaId: null,   // solicitacao cujo campo de motivo de recusa esta aberto
+};
+
+async function carregar() {
+  const qs = state.filtroStatus ? `?status=${state.filtroStatus}` : '';
+  const [pedidos, trocas, produtos] = await Promise.all([
+    api(`/pedidos${qs}`),
+    api('/trocas'),
+    api('/produtos'),
+  ]);
+  Object.assign(state, { pedidos, trocas, produtos });
+}
+
+async function atualizar() {
+  esconderErro();
+  try { await carregar(); render(); } catch (e) { mostrarErro(e.message); }
+}
+
+function abrirAba(aba) {
+  state.aba = aba;
+  esconderErro();
+  render();
+}
+
+function render() {
+  document.getElementById('nav-container').innerHTML = renderNav('admin');
+  ['pedidos', 'trocas', 'estoque'].forEach(a =>
+    document.getElementById(`tab-${a}`).classList.toggle('ativo', state.aba === a));
+  const pendentes = state.trocas.filter(t => !t.recusada && ['EM_TROCA', 'TROCA_AUTORIZADA'].includes(t.statusPedido)).length;
+  document.querySelector('[data-cy=trocas-pendentes]').textContent = pendentes;
+
+  const c = document.getElementById('view-container');
+  if (state.aba === 'pedidos') c.innerHTML = viewPedidos();
+  else if (state.aba === 'trocas') c.innerHTML = viewTrocas();
+  else c.innerHTML = viewEstoque();
+}
+
+// ========================================================================
+// PEDIDOS
+// ========================================================================
+function viewPedidos() {
+  return `
+    <div class="card">
+      <h2>Pedidos</h2>
+      <div class="toolbar">
+        <label style="margin:0;">Status</label>
+        <select data-cy="filtro-status" onchange="filtrarStatus(this.value)">
+          <option value="">Todos</option>
+          ${STATUS.map(s => `<option value="${s}" ${state.filtroStatus === s ? 'selected' : ''}>${statusTexto(s)}</option>`).join('')}
+        </select>
+      </div>
+      ${state.pedidos.length === 0
+        ? '<div class="empty" data-cy="sem-pedidos">Nenhum pedido encontrado.</div>'
+        : `<table class="grid" data-cy="tabela-pedidos">
+            <thead><tr><th>Pedido</th><th>Cliente</th><th>Itens / pagamento</th><th>Total</th><th>Status</th><th>Ação</th></tr></thead>
+            <tbody>${state.pedidos.map(linhaPedido).join('')}</tbody>
+          </table>`}
+    </div>`;
+}
+
+function linhaPedido(p) {
+  const itens = (p.itens || []).map(i => `${i.quantidade}× ${esc(i.produtoNome)}`).join('<br>');
+  const pag = (p.pagamentos || []).map(g => `${esc(g.cartaoBandeira)} •••• ${esc(g.cartaoUltimosQuatroDigitos)} · ${fmt(g.valor)}`).join('<br>');
+  let acao = '<span class="muted small">—</span>';
+  if (p.status === 'EM_PROCESSAMENTO')
+    acao = `<button class="action sm" data-cy="btn-validar-pagamento" onclick="validarPagamento(${p.id})">Validar pagamento</button>`;
+  else if (p.status === 'APROVADA')
+    acao = `<button class="action sm" data-cy="btn-despachar" onclick="despachar(${p.id})">Despachar</button>`;
+  else if (p.status === 'EM_TRANSPORTE')
+    acao = `<button class="action sm" data-cy="btn-confirmar-entrega" onclick="confirmarEntrega(${p.id})">Confirmar entrega</button>`;
+  return `
+    <tr data-cy="pedido-row" data-id="${p.id}" data-status="${p.status}">
+      <td data-cy="col-id"><b>#${p.id}</b><div class="muted small">${fmtData(p.dataCriacao)}</div></td>
+      <td data-cy="col-cliente">${esc(p.clienteNome)}</td>
+      <td data-cy="col-itens" class="small">${itens}<div class="muted" style="margin-top:6px;">${pag || 'Pago com cupom'}</div>
+        ${p.motivoReprovacao ? `<div style="color:var(--err); margin-top:6px;" data-cy="col-motivo">${esc(p.motivoReprovacao)}</div>` : ''}</td>
+      <td data-cy="col-total">${fmt(p.valorTotal)}</td>
+      <td data-cy="col-status"><span class="status ${p.status}" data-status="${p.status}">${statusTexto(p.status)}</span></td>
+      <td class="acoes" data-cy="col-acoes">${acao}</td>
+    </tr>`;
+}
+
+async function filtrarStatus(valor) {
+  state.filtroStatus = valor;
+  await atualizar();
+}
+
+async function acaoPedido(path, mensagem) {
+  esconderErro();
+  try {
+    const resultado = await api(path, { method: 'PATCH' });
+    await carregar();
+    render();
+    mostrarSucesso(mensagem(resultado));
+  } catch (e) { mostrarErro(e.message); }
+}
+
+function validarPagamento(id) {
+  return acaoPedido(`/pedidos/${id}/validar-pagamento`, p => p.status === 'APROVADA'
+    ? `Pedido #${id}: pagamento aprovado pela operadora — status APROVADA e baixa realizada no estoque.`
+    : `Pedido #${id}: pagamento REPROVADO — ${p.motivoReprovacao}. O estoque foi preservado.`);
+}
+function despachar(id) {
+  return acaoPedido(`/pedidos/${id}/despachar`, () => `Pedido #${id} despachado — status EM TRANSPORTE.`);
+}
+function confirmarEntrega(id) {
+  return acaoPedido(`/pedidos/${id}/confirmar-entrega`, () => `Entrega do pedido #${id} confirmada — status ENTREGUE.`);
+}
+
+// ========================================================================
+// TROCAS (RF0043)
+// ========================================================================
+function viewTrocas() {
+  return `
+    <div class="card">
+      <h2>Solicitações de troca</h2>
+      ${state.trocas.length === 0
+        ? '<div class="empty" data-cy="sem-trocas">Nenhuma solicitação de troca.</div>'
+        : `<table class="grid" data-cy="tabela-trocas">
+            <thead><tr><th>Troca</th><th>Pedido / cliente</th><th>Itens</th><th>Motivo do cliente</th><th>Situação</th><th>Ação</th></tr></thead>
+            <tbody>${state.trocas.map(linhaTroca).join('')}</tbody>
+          </table>`}
+    </div>`;
+}
+
+function linhaTroca(t) {
+  const itens = (t.itens || []).map(i => `${i.quantidade}× ${esc(i.produtoNome)} (${fmt(i.valor)})`).join('<br>');
+  let situacao, acao = '<span class="muted small">—</span>';
+  if (t.recusada) {
+    situacao = `<span class="status TROCADO" data-cy="troca-situacao" data-situacao="RECUSADA">RECUSADA</span><div class="small muted" style="margin-top:6px;">${esc(t.motivoRecusa)}</div>`;
+  } else if (t.cupomGerado) {
+    situacao = `<span class="status TROCADO" data-cy="troca-situacao" data-situacao="TROCADO">TROCADO</span>
+      <div class="small muted" style="margin-top:6px;">Cupom <b data-cy="troca-cupom">${esc(t.cupomGerado.codigo)}</b> de ${fmt(t.cupomGerado.valor)}<br>
+      Itens ${t.itensRetornaramEstoque ? 'voltaram' : 'não voltaram'} ao estoque</div>`;
+  } else if (t.statusPedido === 'EM_TROCA') {
+    situacao = `<span class="status EM_TROCA" data-cy="troca-situacao" data-situacao="EM_TROCA">EM TROCA</span>`;
+    acao = state.recusandoTrocaId === t.id
+      ? `<input data-cy="i-motivo-recusa" id="motivo-recusa-${t.id}" placeholder="Motivo da recusa" style="margin-bottom:6px;">
+         <button class="danger" data-cy="btn-confirmar-recusa" onclick="recusarTroca(${t.id})">Confirmar recusa</button>
+         <button class="secondary sm" data-cy="btn-cancelar-recusa" onclick="state.recusandoTrocaId=null; render();">Cancelar</button>`
+      : `<button class="action sm" data-cy="btn-autorizar-troca" onclick="autorizarTroca(${t.id})">Autorizar</button>
+         <button class="danger" data-cy="btn-recusar-troca" onclick="state.recusandoTrocaId=${t.id}; render();">Recusar</button>`;
+  } else if (t.statusPedido === 'TROCA_AUTORIZADA') {
+    situacao = `<span class="status TROCA_AUTORIZADA" data-cy="troca-situacao" data-situacao="TROCA_AUTORIZADA">TROCA AUTORIZADA</span>`;
+    // RF0044 - o administrador informa se os itens voltam ao estoque.
+    acao = `<div class="small muted" style="margin-bottom:6px;">Itens recebidos — voltam ao estoque?</div>
+      <button class="action sm" data-cy="btn-recebimento-com-estoque" onclick="confirmarRecebimento(${t.id}, true)">Sim, voltam</button>
+      <button class="secondary sm" data-cy="btn-recebimento-sem-estoque" onclick="confirmarRecebimento(${t.id}, false)">Não voltam</button>`;
+  } else {
+    situacao = `<span class="status ${t.statusPedido}" data-cy="troca-situacao">${statusTexto(t.statusPedido)}</span>`;
+  }
+  return `
+    <tr data-cy="troca-row" data-id="${t.id}" data-pedido-id="${t.pedidoId}">
+      <td><b>#${t.id}</b><div class="muted small">${fmtData(t.dataSolicitacao)}</div></td>
+      <td><span data-cy="col-pedido">Pedido #${t.pedidoId}</span><div class="muted small" data-cy="col-cliente">${esc(t.clienteNome)}</div></td>
+      <td class="small" data-cy="col-itens">${itens}</td>
+      <td class="small" data-cy="col-motivo">${esc(t.motivoCliente)}</td>
+      <td>${situacao}</td>
+      <td class="acoes" data-cy="col-acoes">${acao}</td>
+    </tr>`;
+}
+
+async function acaoTroca(path, options, mensagem) {
+  esconderErro();
+  try {
+    const resultado = await api(path, { method: 'PATCH', ...options });
+    state.recusandoTrocaId = null;
+    await carregar();
+    render();
+    mostrarSucesso(mensagem(resultado));
+  } catch (e) { mostrarErro(e.message); }
+}
+
+function autorizarTroca(id) {
+  return acaoTroca(`/trocas/${id}/autorizar`, {}, t =>
+    `Troca #${id} autorizada — pedido #${t.pedidoId} agora está TROCA AUTORIZADA. O cliente foi notificado.`);
+}
+
+function recusarTroca(id) {
+  const motivoRecusa = document.getElementById(`motivo-recusa-${id}`).value.trim();
+  return acaoTroca(`/trocas/${id}/recusar`, { body: JSON.stringify({ motivoRecusa }) }, t =>
+    `Troca #${id} recusada — pedido #${t.pedidoId} voltou para ENTREGUE. O cliente foi notificado.`);
+}
+
+function confirmarRecebimento(id, retorna) {
+  return acaoTroca(`/trocas/${id}/confirmar-recebimento`, { body: JSON.stringify({ itensRetornaramEstoque: retorna }) }, t =>
+    `Recebimento da troca #${id} confirmado — pedido #${t.pedidoId} TROCADO. `
+    + `Itens ${retorna ? 'devolvidos ao estoque' : 'não devolvidos ao estoque'}; cupom ${t.cupomGerado.codigo} de ${fmt(t.cupomGerado.valor)} gerado para o cliente.`);
+}
+
+// ========================================================================
+// ESTOQUE (RF0053 baixa na aprovacao, RF0054 reentrada na troca)
+// ========================================================================
+function viewEstoque() {
+  return `
+    <div class="card">
+      <h2>Estoque</h2>
+      <table class="grid" data-cy="tabela-estoque">
+        <thead><tr><th>Produto</th><th>Categoria</th><th>Preço</th><th class="right-text">Em estoque</th><th class="right-text">Reservado em carrinhos</th><th class="right-text">Disponível</th></tr></thead>
+        <tbody>${state.produtos.map(p => `
+          <tr data-cy="estoque-row" data-id="${p.id}">
+            <td data-cy="col-produto">${esc(p.nome)}</td>
+            <td class="muted">${esc(p.categoria)}</td>
+            <td>${fmt(p.precoVenda)}</td>
+            <td class="right-text" data-cy="col-estoque">${p.quantidadeEstoque}</td>
+            <td class="right-text muted" data-cy="col-reservado">${p.quantidadeEstoque - p.quantidadeDisponivel}</td>
+            <td class="right-text" data-cy="col-disponivel">${p.quantidadeDisponivel}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+// ---------------------------------------------------------------------
+(async function start() {
+  try {
+    await carregar();
+    render();
+  } catch (e) {
+    document.getElementById('nav-container').innerHTML = renderNav('admin');
+    mostrarErro('Não foi possível carregar os dados da API (' + API_BASE + '). ' + e.message);
+  }
+})();
+</script>
+</body>
+</html>

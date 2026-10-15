@@ -18,19 +18,21 @@ public class ProdutoResponseDTO {
     private String fornecedor;
     private BigDecimal precoVenda;
 
-    // RN0031 - hoje e igual a quantidadeEstoque: nao ha reserva por item
-    // em carrinho nesta entrega (RN0044/RN0045 fora de escopo). Mantido
-    // como campo calculado, com este nome, para o front nao precisar
-    // mudar quando a reserva for implementada na entrega de 20/10.
+    // RN0031/RN0044 - estoque menos o que esta bloqueado (reservado) em
+    // carrinhos de OUTROS clientes com prazo ainda valido.
     private Integer quantidadeDisponivel;
 
-    public static ProdutoResponseDTO fromEntity(Produto p) {
+    // Estoque fisico (RF0053/RF0054) - usado pelo painel do administrador.
+    private Integer quantidadeEstoque;
+
+    public static ProdutoResponseDTO fromEntity(Produto p, int quantidadeDisponivel) {
         return new ProdutoResponseDTO(
                 p.getId(),
                 p.getNome(),
                 p.getCategoria(),
                 p.getFornecedor(),
                 p.getPrecoVenda(),
+                quantidadeDisponivel,
                 p.getQuantidadeEstoque()
         );
     }

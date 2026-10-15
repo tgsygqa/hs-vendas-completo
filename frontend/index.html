@@ -1,11 +1,36 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta http-equiv="refresh" content="0; url=V08.html">
-  <title>Hardware Store</title>
+<meta charset="UTF-8">
+<title>Hardware Store</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="shared.css">
 </head>
 <body>
-  <a href="V08.html">Abrir Hardware Store - Gestão de Clientes</a>
+<header class="topbar">
+  <div class="brand"><span class="logo">🛒</span>Hardware<span>Store</span></div>
+</header>
+<main style="max-width:900px;">
+  <h1 style="font-size:24px; margin:12px 0 6px;">Hardware Store</h1>
+  <p class="muted" style="margin-bottom:26px;">E-commerce de hardware — DRS_LES_2_2026. Escolha uma tela:</p>
+  <div class="hub">
+    <a class="tile" href="vendas.html" data-cy="hub-loja">
+      <div class="ico">🛒</div><div class="t">Loja</div>
+      <div class="d">Carrinho, endereço, pagamento com cartões e cupons, finalização da compra (cliente).</div>
+    </a>
+    <a class="tile" href="pedidos.html" data-cy="hub-pedidos">
+      <div class="ico">📦</div><div class="t">Meus pedidos</div>
+      <div class="d">Acompanhar o status, solicitar troca, ver notificações e cupons (cliente).</div>
+    </a>
+    <a class="tile" href="admin.html" data-cy="hub-admin">
+      <div class="ico">🛠️</div><div class="t">Administração</div>
+      <div class="d">Validar pagamento, despachar, confirmar entrega, autorizar trocas e conferir o estoque.</div>
+    </a>
+    <a class="tile" href="V08.html" data-cy="hub-clientes">
+      <div class="ico">👤</div><div class="t">Gestão de Clientes</div>
+      <div class="d">Cadastro, consulta, alteração e inativação de clientes (CRUD).</div>
+    </a>
+  </div>
+</main>
 </body>
 </html>

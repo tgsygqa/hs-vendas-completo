@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Getter
 @AllArgsConstructor
@@ -18,6 +19,7 @@ public class ItemCarrinhoResponseDTO {
     private BigDecimal precoUnitario;
     private Integer quantidade;
     private BigDecimal subtotal;
+    private LocalDateTime bloqueadoAte;
 
     public static ItemCarrinhoResponseDTO fromEntity(ItemCarrinho i) {
         BigDecimal subtotal = i.getProduto().getPrecoVenda().multiply(BigDecimal.valueOf(i.getQuantidade()));
@@ -27,7 +29,8 @@ public class ItemCarrinhoResponseDTO {
                 i.getProduto().getNome(),
                 i.getProduto().getPrecoVenda(),
                 i.getQuantidade(),
-                subtotal
+                subtotal,
+                i.getBloqueadoAte()
         );
     }
 }

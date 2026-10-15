@@ -3,110 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <title>Hardware Store — Vendas</title>
-<style>
-  :root { --bg:#0f1115; --panel:#181b21; --panel-2:#22262d; --border:#2d333b; --text:#e8eaed; --muted:#8b93a1; --accent:#3b82f6; --accent-dim:rgba(59,130,246,.12); --ok:#10b981; --err:#ef4444; --warn:#f59e0b; --radius:10px; --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-  * { box-sizing:border-box; margin:0; padding:0; }
-  body { background:var(--bg); color:var(--text); font-family:var(--sans); min-height:100vh; }
-
-  header.topbar { background:var(--panel); border-bottom:1px solid var(--border); padding:16px 40px; display:flex; align-items:center; justify-content:space-between; }
-  header.topbar .brand { font-size:19px; font-weight:700; display:flex; align-items:center; gap:10px; }
-  header.topbar .brand .logo { width:32px; height:32px; border-radius:8px; background:linear-gradient(135deg, var(--accent), #8b5cf6); display:flex; align-items:center; justify-content:center; font-size:16px; }
-  header.topbar .brand span { color:var(--accent); }
-  header.topbar .cart-pill { display:flex; align-items:center; gap:8px; background:var(--panel-2); border:1px solid var(--border); padding:8px 16px; border-radius:20px; font-size:13px; color:var(--muted); }
-  header.topbar .cart-pill b { color:var(--text); }
-
-  .stepper { display:flex; align-items:center; justify-content:center; gap:0; padding:24px 20px 8px; max-width:640px; margin:0 auto; }
-  .stepper .step { display:flex; flex-direction:column; align-items:center; gap:6px; flex:1; position:relative; }
-  .stepper .step .circle { width:30px; height:30px; border-radius:50%; background:var(--panel-2); border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:var(--muted); transition:.2s; }
-  .stepper .step .label { font-size:12px; color:var(--muted); font-weight:500; }
-  .stepper .step.done .circle { background:var(--ok); border-color:var(--ok); color:#06261b; }
-  .stepper .step.active .circle { background:var(--accent); border-color:var(--accent); color:#fff; }
-  .stepper .step.active .label, .stepper .step.done .label { color:var(--text); }
-  .stepper .line { flex:1; height:2px; background:var(--border); margin:0 -4px 22px; }
-  .stepper .line.done { background:var(--ok); }
-
-  main { max-width:1140px; margin:0 auto; padding:24px 32px 60px; }
-  .row { display:flex; gap:20px; align-items:flex-start; }
-  .col { flex:1; min-width:0; }
-
-  .card { background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:22px; margin-bottom:18px; }
-  .card h2 { font-size:16px; font-weight:600; margin:0 0 16px; display:flex; align-items:center; gap:8px; }
-  .card h2 .num { width:22px; height:22px; border-radius:50%; background:var(--accent-dim); color:var(--accent); font-size:12px; display:inline-flex; align-items:center; justify-content:center; font-weight:700; }
-  h3.sublabel { font-size:11.5px; margin:18px 0 10px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; font-weight:600; }
-
-  label { display:block; font-size:12px; font-weight:500; color:var(--muted); margin:10px 0 5px; }
-  input, select { width:100%; background:var(--bg); border:1px solid var(--border); border-radius:7px; padding:10px 12px; color:var(--text); font-size:14px; }
-  input:focus, select:focus { outline:none; border-color:var(--accent); }
-  input[type=checkbox], input[type=radio] { width:auto; accent-color:var(--accent); }
-
-  button.action { background:var(--accent); color:#fff; border:none; padding:12px 20px; border-radius:8px; font-weight:600; cursor:pointer; font-size:14.5px; transition:.15s; }
-  button.action:hover:not(:disabled) { background:#2f6fe0; }
-  button.action:disabled { opacity:.35; cursor:not-allowed; }
-  button.secondary { background:var(--panel-2); border:1px solid var(--border); color:var(--text); padding:10px 16px; border-radius:7px; cursor:pointer; font-size:13.5px; font-weight:500; }
-  button.secondary:hover { border-color:var(--accent); color:var(--accent); }
-  button.link { background:none; border:none; color:var(--accent); font-size:13px; cursor:pointer; padding:0; font-weight:500; }
-
-  .produtos-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); gap:14px; }
-  .produto-card { background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:16px; display:flex; flex-direction:column; transition:.15s; }
-  .produto-card:hover { border-color:var(--accent); transform:translateY(-2px); box-shadow:0 8px 20px rgba(0,0,0,.25); }
-  .produto-thumb { width:100%; aspect-ratio:1.3; border-radius:8px; background:linear-gradient(135deg, var(--panel-2), var(--bg)); display:flex; align-items:center; justify-content:center; font-size:30px; margin-bottom:12px; border:1px solid var(--border); }
-  .produto-card .categoria { font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; margin-bottom:4px; }
-  .produto-card .nome { font-size:13.5px; font-weight:600; line-height:1.35; margin-bottom:8px; flex:1; }
-  .produto-card .preco { font-size:17px; font-weight:700; color:var(--ok); margin-bottom:2px; }
-  .produto-card .estoque { font-size:11.5px; color:var(--muted); margin-bottom:10px; }
-  .produto-card .estoque.baixo { color:var(--warn); }
-  .qty-stepper { display:flex; align-items:center; gap:0; border:1px solid var(--border); border-radius:7px; overflow:hidden; margin-bottom:8px; }
-  .qty-stepper button { flex:0 0 30px; height:30px; background:var(--panel-2); border:none; color:var(--text); cursor:pointer; font-size:15px; }
-  .qty-stepper input { border:none; border-left:1px solid var(--border); border-right:1px solid var(--border); border-radius:0; text-align:center; height:30px; padding:0; font-size:13px; }
-  .produto-card button.action { width:100%; padding:9px; font-size:13px; }
-
-  .carrinho-item { display:flex; align-items:center; gap:10px; padding:12px 0; border-bottom:1px solid var(--panel-2); }
-  .carrinho-item:last-child { border-bottom:none; }
-  .carrinho-item .thumb-mini { width:40px; height:40px; border-radius:6px; background:var(--panel-2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
-  .carrinho-item .info { flex:1; min-width:0; }
-  .carrinho-item .info .nome { font-size:13px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .carrinho-item .info .preco-un { font-size:11.5px; color:var(--muted); }
-  .carrinho-item .qty { display:flex; align-items:center; gap:6px; }
-  .carrinho-item .qty button { width:22px; height:22px; border-radius:5px; background:var(--panel-2); border:1px solid var(--border); color:var(--text); cursor:pointer; font-size:12px; line-height:1; }
-  .carrinho-item .remover { color:var(--err); background:none; border:none; cursor:pointer; font-size:11.5px; margin-left:6px; }
-
-  .total-line { display:flex; justify-content:space-between; padding:6px 0; font-size:13.5px; color:var(--muted); }
-  .total-line .v { color:var(--text); }
-  .total-line.grand { font-size:18px; font-weight:700; border-top:1px solid var(--border); margin-top:8px; padding-top:14px; color:var(--text); }
-  .total-line.grand .v { color:var(--ok); }
-  .total-line.falta .v { color:var(--warn); font-weight:600; }
-  .total-line.falta.coberto .v { color:var(--ok); }
-
-  .select-card { display:block; border:1.5px solid var(--border); border-radius:9px; padding:14px 16px; margin-bottom:10px; cursor:pointer; transition:.12s; position:relative; }
-  .select-card:hover { border-color:#45506099; }
-  .select-card.selected { border-color:var(--accent); background:var(--accent-dim); }
-  .select-card input { position:absolute; top:14px; right:14px; }
-  .select-card .titulo { font-size:14px; font-weight:600; margin-bottom:3px; padding-right:24px; }
-  .select-card .detalhe { font-size:12.5px; color:var(--muted); }
-  .select-card.cupom .valor { float:right; color:var(--ok); font-weight:700; font-size:14px; }
-
-  .badge { font-size:10.5px; padding:3px 8px; border-radius:5px; font-weight:700; letter-spacing:.02em; }
-  .badge.PROMOCIONAL { background:rgba(59,130,246,.15); color:var(--accent); }
-  .badge.TROCA { background:rgba(245,158,11,.15); color:var(--warn); }
-  .badge.auto { background:rgba(16,185,129,.15); color:var(--ok); font-size:10px; margin-left:8px; }
-
-  #msg-erro { background:rgba(239,68,68,.1); border:1px solid var(--err); color:#fca5a5; padding:13px 16px; border-radius:9px; margin-bottom:18px; display:none; font-size:13.5px; }
-  .empty { color:var(--muted); font-size:13px; padding:20px 0; text-align:center; }
-
-  .confirmacao { text-align:center; padding:56px 20px; }
-  .confirmacao .check { width:68px; height:68px; border-radius:50%; background:rgba(16,185,129,.15); color:var(--ok); display:flex; align-items:center; justify-content:center; font-size:34px; margin:0 auto 20px; border:2px solid var(--ok); }
-  .confirmacao h2 { font-size:22px; margin-bottom:6px; }
-  .confirmacao .pedido-num { color:var(--muted); font-size:14px; margin-bottom:18px; }
-  .confirmacao .status-pill { display:inline-block; background:rgba(245,158,11,.15); color:var(--warn); padding:6px 16px; border-radius:20px; font-weight:700; font-size:13px; letter-spacing:.03em; margin-bottom:18px; }
-  .confirmacao .valor-final { font-size:28px; font-weight:700; color:var(--ok); margin-bottom:28px; }
-  .resumo-pedido { max-width:420px; margin:0 auto 24px; text-align:left; background:var(--panel-2); border-radius:9px; padding:16px 18px; }
-  .resumo-pedido .li { display:flex; justify-content:space-between; font-size:13px; padding:5px 0; color:var(--muted); }
-  .resumo-pedido .li span:last-child { color:var(--text); }
-</style>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="shared.css">
 </head>
 <body>
 <header class="topbar">
   <div class="brand"><span class="logo">🛒</span>Hardware<span>Store</span></div>
+  <div id="nav-container"></div>
   <div class="cart-pill" data-cy="cart-pill">🛍️ <b data-cy="cart-pill-count">0</b> item(ns) · <b data-cy="cart-pill-total">R$ 0,00</b></div>
 </header>
 
@@ -117,22 +20,17 @@
   <div id="view-container"></div>
 </main>
 
+<script src="shared.js"></script>
 <script>
-const CLIENTE_ID = 1;
+// ---------------------------------------------------------------------
+// Loja (CDU02): carrinho -> entrega e pagamento -> confirmacao.
+// CLIENTE_ID, API_BASE, api(), fmt(), esc() e mostrarErro() vem de shared.js.
+// O cliente vem da URL (?clienteId=); sem parametro, e o Joao Silva (id 1).
+// ---------------------------------------------------------------------
 const FRETE = 24.90;
 
-const API_BASE = (() => {
-  const { hostname, protocol, port } = window.location;
-  if (hostname.endsWith('.github.dev')) {
-    const p = port || '5500';
-    const novoHost = hostname.replace(`-${p}.`, '-8080.');
-    return `${protocol}//${novoHost}/api`;
-  }
-  return 'http://localhost:8080/api';
-})();
-
 const ICONES_CATEGORIA = {
-  'Placas de Vídeo': '🎮', 'Processadores': '🧠', 'Periféricos': '⌨️',
+  'Placas de Vídeo': '🎮', 'Placas de Video': '🎮', 'Processadores': '🧠', 'Periféricos': '⌨️', 'Perifericos': '⌨️',
   'Armazenamento': '💾', 'default': '📦',
 };
 function iconeProduto(categoria) { return ICONES_CATEGORIA[categoria] || ICONES_CATEGORIA.default; }
@@ -140,62 +38,90 @@ function iconeProduto(categoria) { return ICONES_CATEGORIA[categoria] || ICONES_
 const state = {
   view: 'carrinho',
   produtos: [],
-  carrinho: { itens: [], total: 0 },
+  carrinho: { itens: [], total: 0, itensExpirados: [], podeComprar: false },
   cliente: { enderecos: [], cartoes: [] },
   cupons: [],
   mostrarNovoEndereco: false,
   mostrarNovoCartao: false,
   enderecoSelecionado: null,
-  cartoesSelecionados: new Set(),
-  cupomSelecionado: null,
+  cartoesSelecionados: new Set(),   // ids dos cartoes marcados; valor e automatico
+  cupomSelecionado: null,            // um unico id, ou null
   pedidoFinalizado: null,
 };
 
-function fmt(v) {
-  return (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
-function esc(t) {
-  return String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+// ---------------------------------------------------------------------
+// RN0044 - contador do bloqueio do carrinho. O servidor manda quantos
+// segundos faltam (segundosParaExpirar); o relogio local so conta a partir
+// dai, para nao depender do relogio do computador do cliente estar certo.
+// ---------------------------------------------------------------------
+let prazoFinalMs = null;
+let expirandoAgora = false;
+
+function setCarrinho(c) {
+  state.carrinho = c;
+  prazoFinalMs = c.segundosParaExpirar != null ? Date.now() + c.segundosParaExpirar * 1000 : null;
+  expirandoAgora = false;
 }
 
-async function api(path, options = {}) {
-  const resp = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
-  });
-  const texto = await resp.text();
-  const corpo = texto ? JSON.parse(texto) : null;
-  if (!resp.ok) {
-    const msg = (corpo && (corpo.mensagem || corpo.message)) || `Erro ${resp.status}`;
-    throw new Error(msg);
+function fmtTempo(segundos) {
+  const m = Math.floor(segundos / 60), s = segundos % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+function segundosRestantes() {
+  return prazoFinalMs == null ? null : Math.max(0, Math.round((prazoFinalMs - Date.now()) / 1000));
+}
+
+async function tick() {
+  const restante = segundosRestantes();
+  if (restante == null) return;
+  const contador = document.querySelector('[data-cy=bloqueio-contador]');
+  if (contador) contador.textContent = fmtTempo(restante);
+  // RN0044 - o cliente e avisado quando faltam 5 minutos (parametro do servidor) ou menos.
+  const aviso = document.querySelector('[data-cy=aviso-expiracao]');
+  if (aviso) aviso.style.display = restante <= (state.carrinho.avisoMinutos || 5) * 60 ? 'flex' : 'none';
+  const tempoAviso = document.querySelector('[data-cy=aviso-expiracao-tempo]');
+  if (tempoAviso) tempoAviso.textContent = fmtTempo(restante);
+  // Prazo vencido: pede ao servidor o carrinho atualizado (os itens ja saem
+  // do carrinho - RN0045 - e passam a aparecer como expirados - RNF0042).
+  if (restante === 0 && !expirandoAgora && state.view !== 'confirmacao') {
+    expirandoAgora = true;
+    try {
+      const anterior = state.view;
+      setCarrinho(await api(`/clientes/${CLIENTE_ID}/carrinho`));
+      if (anterior === 'checkout' && !state.carrinho.podeComprar) {
+        state.view = 'carrinho';
+        mostrarErro('O prazo de bloqueio dos itens expirou e eles foram retirados do carrinho. Adicione-os novamente para comprar (RNF0042).');
+      }
+      await render();
+    } catch (e) { mostrarErro(e.message); }
   }
-  return corpo;
 }
-
-function mostrarErro(msg) {
-  const el = document.getElementById('msg-erro');
-  el.textContent = msg;
-  el.style.display = 'block';
-  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-function esconderErro() {
-  document.getElementById('msg-erro').style.display = 'none';
-}
+setInterval(tick, 1000);
 
 async function carregarTudo() {
   const [produtos, carrinho, cliente, cupons] = await Promise.all([
-    api('/produtos'),
+    api(`/produtos?clienteId=${CLIENTE_ID}`),
     api(`/clientes/${CLIENTE_ID}/carrinho`),
     api(`/clientes/${CLIENTE_ID}`),
     api(`/clientes/${CLIENTE_ID}/cupons`),
   ]);
   state.produtos = produtos;
-  state.carrinho = carrinho;
+  setCarrinho(carrinho);
   state.cliente = cliente;
   state.cupons = cupons;
 }
 
+// Atualiza so o catalogo e o carrinho (a disponibilidade muda a cada compra/bloqueio).
+async function recarregarCatalogo() {
+  state.produtos = await api(`/produtos?clienteId=${CLIENTE_ID}`);
+}
+
+// ========================================================================
+// STEPPER / CABEÇALHO
+// ========================================================================
 function renderStepper() {
+  document.getElementById('nav-container').innerHTML = renderNav('loja');
   const etapas = [
     { id: 'carrinho', label: 'Carrinho' },
     { id: 'checkout', label: 'Entrega e Pagamento' },
@@ -220,10 +146,25 @@ async function render() {
   if (state.view === 'carrinho') container.innerHTML = viewCarrinho();
   else if (state.view === 'checkout') container.innerHTML = viewCheckout();
   else container.innerHTML = viewConfirmacao();
+  tick();
+}
+
+// ========================================================================
+// VIEW: CARRINHO (RF0031, RF0032, RN0031, RN0044, RN0045, RNF0042)
+// ========================================================================
+function textoEstoque(p) {
+  const reservado = (p.quantidadeEstoque ?? p.quantidadeDisponivel) - p.quantidadeDisponivel;
+  if (p.quantidadeDisponivel > 0) {
+    return `${p.quantidadeDisponivel} em estoque` + (reservado > 0 ? ` · ${reservado} reservado(s) em outros carrinhos` : '');
+  }
+  return reservado > 0 ? 'Indisponível — reservado em outros carrinhos' : 'Indisponível';
 }
 
 function viewCarrinho() {
   const itensCarrinho = state.carrinho.itens || [];
+  const expirados = state.carrinho.itensExpirados || [];
+  const restante = segundosRestantes();
+  const avisoMin = state.carrinho.avisoMinutos || 5;
   return `
     <div class="row">
       <div class="col" style="flex:1.6">
@@ -236,9 +177,7 @@ function viewCarrinho() {
                 <div class="categoria">${esc(p.categoria)}</div>
                 <div class="nome">${esc(p.nome)}</div>
                 <div class="preco">${fmt(p.precoVenda)}</div>
-                <div class="estoque ${p.quantidadeDisponivel <= 5 ? 'baixo' : ''}" data-cy="produto-estoque">
-                  ${p.quantidadeDisponivel > 0 ? `${p.quantidadeDisponivel} em estoque` : 'Indisponível'}
-                </div>
+                <div class="estoque ${p.quantidadeDisponivel <= 5 ? 'baixo' : ''}" data-cy="produto-estoque">${textoEstoque(p)}</div>
                 <div class="qty-stepper">
                   <button onclick="ajustarInputQtd(${p.id}, -1)">−</button>
                   <input type="number" min="1" value="1" data-cy="input-qtd-produto" id="qtd-${p.id}">
@@ -254,6 +193,30 @@ function viewCarrinho() {
       <div class="col" style="flex:1; position:sticky; top:84px;">
         <div class="card">
           <h2>🛒 Seu Carrinho</h2>
+
+          ${expirados.length ? `
+            <div class="aviso err" data-cy="aviso-itens-expirados">
+              <div class="grow">⏱️ <b>Itens retirados do carrinho</b> porque o prazo de bloqueio acabou. Adicione-os novamente para poder comprar.</div>
+            </div>
+            ${expirados.map(e => `
+              <div class="expirado-item" data-cy="item-expirado" data-id="${e.id}">
+                <div class="info">
+                  <div class="nome" data-cy="item-expirado-nome">${esc(e.produtoNome)}</div>
+                  <div class="sub">${e.quantidade} un. · expirou em ${fmtData(e.expiradoEm)}</div>
+                </div>
+                <button class="secondary sm" data-cy="btn-readicionar-expirado" onclick="readicionarExpirado(${e.id})">Adicionar novamente</button>
+                <button class="link" data-cy="btn-dispensar-expirado" onclick="dispensarExpirado(${e.id})">dispensar</button>
+              </div>
+            `).join('')}
+          ` : ''}
+
+          ${itensCarrinho.length ? `
+            <div class="aviso warn" data-cy="aviso-expiracao" style="display:${restante != null && restante <= avisoMin * 60 ? 'flex' : 'none'}">
+              <div class="grow">⚠️ Seus itens serão liberados para outros clientes em <span class="contador" data-cy="aviso-expiracao-tempo">${restante != null ? fmtTempo(restante) : ''}</span>. Finalize a compra antes disso.</div>
+            </div>
+            <div class="small muted" style="margin-bottom:6px;">Itens reservados por <span class="contador" data-cy="bloqueio-contador">${restante != null ? fmtTempo(restante) : ''}</span></div>
+          ` : ''}
+
           ${itensCarrinho.length === 0 ? '<div class="empty" data-cy="carrinho-vazio">Seu carrinho está vazio.<br>Adicione produtos ao lado.</div>' : `
             <div>
               ${itensCarrinho.map(i => `
@@ -275,7 +238,7 @@ function viewCarrinho() {
             <div class="total-line grand"><span>Total</span><span class="v" data-cy="carrinho-total">${fmt(state.carrinho.total)}</span></div>
           `}
           <button class="action" style="width:100%; margin-top:14px;" data-cy="btn-iniciar-compra"
-            ${itensCarrinho.length === 0 ? 'disabled' : ''} onclick="irParaCheckout()">
+            ${state.carrinho.podeComprar ? '' : 'disabled'} onclick="irParaCheckout()">
             Iniciar Compra →
           </button>
         </div>
@@ -289,15 +252,21 @@ function ajustarInputQtd(produtoId, delta) {
   input.value = Math.max(1, (Number(input.value) || 1) + delta);
 }
 
+// Depois de qualquer mudanca no carrinho, a disponibilidade do catalogo muda junto.
+async function aposMudarCarrinho() {
+  await recarregarCatalogo();
+  await render();
+}
+
 async function adicionarAoCarrinho(produtoId) {
   esconderErro();
   const qtd = Number(document.getElementById(`qtd-${produtoId}`).value) || 1;
   try {
-    state.carrinho = await api(`/clientes/${CLIENTE_ID}/carrinho/itens`, {
+    setCarrinho(await api(`/clientes/${CLIENTE_ID}/carrinho/itens`, {
       method: 'POST',
       body: JSON.stringify({ produtoId, quantidade: qtd }),
-    });
-    await render();
+    }));
+    await aposMudarCarrinho();
   } catch (e) { mostrarErro(e.message); }
 }
 
@@ -305,19 +274,36 @@ async function alterarQtd(itemId, novaQtd) {
   esconderErro();
   if (novaQtd <= 0) return removerItem(itemId);
   try {
-    state.carrinho = await api(`/clientes/${CLIENTE_ID}/carrinho/itens/${itemId}`, {
+    setCarrinho(await api(`/clientes/${CLIENTE_ID}/carrinho/itens/${itemId}`, {
       method: 'PATCH',
       body: JSON.stringify({ quantidade: novaQtd }),
-    });
-    await render();
+    }));
+    await aposMudarCarrinho();
   } catch (e) { mostrarErro(e.message); }
 }
 
 async function removerItem(itemId) {
   esconderErro();
   try {
-    state.carrinho = await api(`/clientes/${CLIENTE_ID}/carrinho/itens/${itemId}`, { method: 'DELETE' });
-    await render();
+    setCarrinho(await api(`/clientes/${CLIENTE_ID}/carrinho/itens/${itemId}`, { method: 'DELETE' }));
+    await aposMudarCarrinho();
+  } catch (e) { mostrarErro(e.message); }
+}
+
+// RNF0042 - "os itens deverao ser adicionados novamente no carrinho".
+async function readicionarExpirado(expiradoId) {
+  esconderErro();
+  try {
+    setCarrinho(await api(`/clientes/${CLIENTE_ID}/carrinho/expirados/${expiradoId}/readicionar`, { method: 'POST' }));
+    await aposMudarCarrinho();
+  } catch (e) { mostrarErro(e.message); }
+}
+
+async function dispensarExpirado(expiradoId) {
+  esconderErro();
+  try {
+    setCarrinho(await api(`/clientes/${CLIENTE_ID}/carrinho/expirados/${expiradoId}`, { method: 'DELETE' }));
+    await aposMudarCarrinho();
   } catch (e) { mostrarErro(e.message); }
 }
 
@@ -327,6 +313,9 @@ function irParaCheckout() {
   render();
 }
 
+// ========================================================================
+// VIEW: CHECKOUT (RF0033-RF0038, RN0023-RN0025, RN0033-RN0036)
+// ========================================================================
 function valorProdutos() { return state.carrinho.total; }
 function valorTotalCompra() { return valorProdutos() + FRETE; }
 
@@ -336,8 +325,11 @@ function valorCupomSelecionado() {
   return c ? Number(c.valor) : 0;
 }
 
+// Pagamento automatico: o restante apos o cupom e dividido em partes
+// iguais entre os cartoes marcados, com a ultima parte absorvendo o
+// arredondamento, para a soma bater exatamente com o total.
 function calcularValoresPorCartao() {
-  const restante = Math.max(0, valorTotalCompra() - valorCupomSelecionado());
+  const restante = Math.max(0, Math.round((valorTotalCompra() - valorCupomSelecionado()) * 100) / 100);
   const ids = [...state.cartoesSelecionados];
   if (ids.length === 0 || restante === 0) return {};
   const parte = Math.floor((restante / ids.length) * 100) / 100;
@@ -363,7 +355,7 @@ function viewCheckout() {
   const cartoes = state.cliente.cartoes || [];
   const valoresPorCartao = calcularValoresPorCartao();
   const pago = somaCartoesSelecionados() + valorCupomSelecionado();
-  const falta = Math.max(0, valorTotalCompra() - pago);
+  const falta = Math.max(0, Math.round((valorTotalCompra() - pago) * 100) / 100);
   const coberto = falta === 0 && (state.cartoesSelecionados.size > 0 || state.cupomSelecionado);
 
   return `
@@ -410,10 +402,10 @@ function viewCheckout() {
                 ${state.cupomSelecionado === c.id ? 'checked' : ''}
                 onchange="selecionarCupom(${c.id})">
               <span class="valor">${fmt(c.valor)}</span>
-              <div class="titulo">${esc(c.codigo)} <span class="badge ${c.tipo}">${c.tipo}</span></div>
+              <div class="titulo"><span data-cy="cupom-codigo">${esc(c.codigo)}</span> <span class="badge ${c.tipo}">${c.tipo}</span></div>
             </label>
           `).join('') || '<div class="empty">Nenhum cupom disponível.</div>'}
-          ${state.cupomSelecionado ? `<button class="link" style="margin-top:6px;" onclick="selecionarCupom(null)">Remover cupom</button>` : ''}
+          ${state.cupomSelecionado ? `<button class="link" style="margin-top:6px;" data-cy="btn-remover-cupom" onclick="selecionarCupom(null)">Remover cupom</button>` : ''}
         </div>
       </div>
 
@@ -422,7 +414,7 @@ function viewCheckout() {
           <h2>Resumo da Compra</h2>
           <div class="total-line"><span>Produtos</span><span class="v">${fmt(valorProdutos())}</span></div>
           <div class="total-line"><span>Frete</span><span class="v" data-cy="frete-valor">${fmt(FRETE)}</span></div>
-          ${state.cupomSelecionado ? `<div class="total-line"><span>Cupom</span><span class="v" style="color:var(--ok);">− ${fmt(valorCupomSelecionado())}</span></div>` : ''}
+          ${state.cupomSelecionado ? `<div class="total-line"><span>Cupom</span><span class="v" style="color:var(--ok);" data-cy="cupom-desconto">− ${fmt(valorCupomSelecionado())}</span></div>` : ''}
           <div class="total-line grand"><span>Total</span><span class="v" data-cy="total-compra">${fmt(valorTotalCompra())}</span></div>
           <div class="total-line falta ${coberto ? 'coberto' : ''}">
             <span>${coberto ? 'Pagamento completo' : 'Ainda falta cobrir'}</span>
@@ -431,7 +423,7 @@ function viewCheckout() {
           <button class="action" style="width:100%; margin-top:16px;" data-cy="btn-finalizar-compra" onclick="finalizarCompra()">
             Confirmar Pagamento
           </button>
-          <button class="secondary" style="width:100%; margin-top:8px;" onclick="state.view='carrinho'; render();">← Voltar ao carrinho</button>
+          <button class="secondary" style="width:100%; margin-top:8px;" data-cy="btn-voltar-carrinho" onclick="state.view='carrinho'; render();">← Voltar ao carrinho</button>
         </div>
       </div>
     </div>
@@ -464,6 +456,8 @@ function formNovoEndereco() {
   `;
 }
 
+// RN0025 - bandeira de lista fechada. Os valores sao os do enum Bandeira do
+// backend (AMERICAN_EXPRESS, e nao AMEX).
 function formNovoCartao() {
   return `
     <div class="card" style="background:var(--panel-2); margin-top:12px; padding:16px;">
@@ -472,7 +466,8 @@ function formNovoCartao() {
       <label>Bandeira *</label>
       <select id="nc-bandeira" data-cy="i-nc-bandeira">
         <option value="VISA">VISA</option><option value="MASTERCARD">MASTERCARD</option>
-        <option value="ELO">ELO</option><option value="AMEX">AMEX</option>
+        <option value="ELO">ELO</option><option value="AMERICAN_EXPRESS">AMERICAN EXPRESS</option>
+        <option value="HIPERCARD">HIPERCARD</option>
       </select>
       <label>Nome impresso *</label><input id="nc-titular" data-cy="i-nc-titular">
       <label>Código de segurança *</label><input id="nc-cvv" data-cy="i-nc-cvv" maxlength="4">
@@ -488,11 +483,14 @@ function toggleCartao(cartaoId, marcado) {
   render();
 }
 
+// RN0033 - apenas um cupom por compra: selecionar um desmarca qualquer
+// outro automaticamente (por isso e um radio, nao checkbox).
 function selecionarCupom(cupomId) {
   state.cupomSelecionado = cupomId;
   render();
 }
 
+// RF0035/RN0023 - novo endereço durante a compra, incorporado ao perfil.
 async function salvarNovoEndereco() {
   esconderErro();
   const g = id => document.getElementById(id).value;
@@ -514,6 +512,7 @@ async function salvarNovoEndereco() {
   } catch (e) { mostrarErro(e.message); }
 }
 
+// RF0036/RN0024/RN0025 - novo cartão durante a compra, incorporado ao perfil.
 async function salvarNovoCartao() {
   esconderErro();
   const g = id => document.getElementById(id).value;
@@ -531,6 +530,9 @@ async function salvarNovoCartao() {
   } catch (e) { mostrarErro(e.message); }
 }
 
+// RF0038 - finaliza a compra. Os valores por cartão sao calculados
+// automaticamente (ver calcularValoresPorCartao) - o cliente so escolhe
+// QUAIS cartoes usar, nao quanto cobrar em cada um.
 async function finalizarCompra() {
   esconderErro();
   if (!state.enderecoSelecionado) return mostrarErro('Selecione um endereço de entrega.');
@@ -549,25 +551,48 @@ async function finalizarCompra() {
     state.cartoesSelecionados = new Set();
     state.cupomSelecionado = null;
     state.enderecoSelecionado = null;
+    setCarrinho({ itens: [], total: 0, itensExpirados: [], podeComprar: false });
     await render();
-  } catch (e) { mostrarErro(e.message); }
+  } catch (e) {
+    mostrarErro(e.message);
+    // RN0032/RN0044/RNF0042 - o servidor pode ter ajustado o carrinho (quantidade
+    // reduzida, item removido, item expirado). Recarrega e, se mudou, volta ao
+    // carrinho para o cliente ver o resultado, com o alerta ainda na tela.
+    try {
+      const antes = JSON.stringify((state.carrinho.itens || []).map(i => [i.id, i.quantidade]));
+      await carregarTudo();
+      const depois = JSON.stringify((state.carrinho.itens || []).map(i => [i.id, i.quantidade]));
+      if (antes !== depois || (state.carrinho.itensExpirados || []).length) {
+        state.view = 'carrinho';
+        await render();
+        mostrarErro(e.message);
+      }
+    } catch (_) { /* o alerta original ja esta na tela */ }
+  }
 }
 
+// ========================================================================
+// VIEW: CONFIRMAÇÃO
+// ========================================================================
 function viewConfirmacao() {
   const p = state.pedidoFinalizado;
+  const sufixo = new URLSearchParams(window.location.search).get('clienteId');
+  const linkPedidos = 'pedidos.html' + (sufixo ? `?clienteId=${encodeURIComponent(sufixo)}` : '');
   return `
     <div class="card confirmacao">
       <div class="check">✓</div>
       <h2>Pedido realizado com sucesso!</h2>
       <div class="pedido-num">Pedido <strong data-cy="pedido-id">#${p.id}</strong></div>
-      <div class="status-pill" data-cy="pedido-status">${p.status}</div>
+      <div class="status-pill" data-cy="pedido-status" data-status="${p.status}">${statusTexto(p.status)}</div>
       <div class="valor-final" data-cy="pedido-total">${fmt(p.valorTotal)}</div>
       <div class="resumo-pedido">
         ${(p.itens || []).map(i => `<div class="li"><span>${i.quantidade}× ${esc(i.produtoNome)}</span><span>${fmt(i.subtotal)}</span></div>`).join('')}
         <div class="li"><span>Frete</span><span>${fmt(p.frete)}</span></div>
         <div class="li"><span>Entrega</span><span>${esc(p.enderecoResumo || '')}</span></div>
       </div>
+      <p class="muted small" style="margin-bottom:18px;" data-cy="aviso-pagamento">O pagamento será validado junto à operadora do cartão. Acompanhe o andamento em "Meus pedidos".</p>
       <button class="action" data-cy="btn-nova-compra" onclick="reiniciar()">Fazer nova compra</button>
+      <button class="secondary" style="margin-left:8px;" data-cy="btn-ver-pedidos" onclick="window.location.href='${linkPedidos}'">Ver meus pedidos</button>
     </div>
   `;
 }
@@ -579,6 +604,7 @@ async function reiniciar() {
   await render();
 }
 
+// ---------------------------------------------------------------------
 (async function start() {
   try {
     await carregarTudo();

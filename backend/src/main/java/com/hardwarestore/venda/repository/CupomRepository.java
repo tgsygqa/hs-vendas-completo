@@ -10,9 +10,8 @@ import java.util.List;
 public interface CupomRepository extends JpaRepository<Cupom, Long> {
 
     // Cupons que o cliente pode usar agora: os dele (cupons de troca,
-    // RF0045 - fora de escopo gerar, mas pre-carregados) mais os
-    // promocionais de uso geral (cliente nulo), que ainda nao foram
-    // usados. Usado pela tela de pagamento para listar as opcoes.
+    // RF0045, e de troco, RN0036) mais os promocionais de uso geral
+    // (cliente nulo), que ainda nao foram usados. Usado pela tela de pagamento para listar as opcoes.
     @Query("SELECT c FROM Cupom c WHERE c.utilizado = false "
             + "AND (c.cliente.id = :clienteId OR c.cliente IS NULL)")
     List<Cupom> buscarDisponiveisParaCliente(@Param("clienteId") Long clienteId);

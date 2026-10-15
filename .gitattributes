@@ -1,0 +1,7 @@
+# Normaliza finais de linha: o repositório guarda LF; no Windows o Git converte
+# para CRLF ao baixar e de volta ao enviar. Scripts de shell e o wrapper do Maven
+# no Linux/macOS PRECISAM de LF (com CRLF o bash quebra).
+* text=auto
+*.sh text eol=lf
+mvnw text eol=lf
+*.cmd text eol=crlf

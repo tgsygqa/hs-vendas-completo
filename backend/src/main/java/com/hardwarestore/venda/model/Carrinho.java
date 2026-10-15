@@ -52,4 +52,12 @@ public class Carrinho {
     @JsonManagedReference
     @Builder.Default
     private List<ItemCarrinho> itens = new ArrayList<>();
+
+    // RNF0042 - itens retirados do carrinho por expiracao do bloqueio
+    // (RN0044/RN0045). Continuam listados ate o cliente adiciona-los de novo
+    // (ou dispensar o aviso), e enquanto houver algum a compra fica desabilitada.
+    @OneToMany(mappedBy = "carrinho", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<ItemCarrinhoExpirado> itensExpirados = new ArrayList<>();
 }
+

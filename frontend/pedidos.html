@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Hardware Store — Meus pedidos</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="logo">🛒</span>Hardware<span>Store</span></div>
+  <div id="nav-container"></div>
+  <div class="right">
+    <span class="small muted" data-cy="cliente-nome"></span>
+    <button class="secondary sm" data-cy="btn-atualizar" onclick="atualizar()">↻ Atualizar</button>
+  </div>
+</header>
+
+<main>
+  <div id="msg-erro" data-cy="msg-erro"></div>
+  <div id="msg-sucesso" data-cy="msg-sucesso"></div>
+  <div id="view-container"></div>
+</main>
+
+<script src="shared.js"></script>
+<script>
+// ---------------------------------------------------------------------
+// Meus pedidos (area do CLIENTE): acompanha o status de cada compra
+// (RF0038-RF0040), pede troca de itens de pedidos ENTREGUES (RF0041,
+// RN0043), acompanha a troca (RF0042, RF0044), recebe a notificacao de
+// autorizacao (RN0046) e ve o cupom de troca gerado (RF0045).
+// ---------------------------------------------------------------------
+const state = {
+  cliente: null,
+  pedidos: [],
+  notificacoes: [],
+  cupons: [],
+  trocaAbertaPedidoId: null,   // pedido cujo formulario de troca esta aberto
+};
+
+async function carregar() {
+  const [cliente, pedidos, notificacoes, cupons] = await Promise.all([
+    api(`/clientes/${CLIENTE_ID}`),
+    api(`/clientes/${CLIENTE_ID}/pedidos`),
+    api(`/clientes/${CLIENTE_ID}/notificacoes`),
+    api(`/clientes/${CLIENTE_ID}/cupons`),
+  ]);
+  Object.assign(state, { cliente, pedidos, notificacoes, cupons });
+}
+
+async function atualizar() {
+  esconderErro();
+  try { await carregar(); render(); } catch (e) { mostrarErro(e.message); }
+}
+
+function render() {
+  document.getElementById('nav-container').innerHTML = renderNav('pedidos');
+  document.querySelector('[data-cy=cliente-nome]').textContent = state.cliente ? `Cliente: ${state.cliente.nome}` : '';
+  document.getElementById('view-container').innerHTML = `
+    <div class="row">
+      <div class="col" style="flex:1.7">
+        <div class="card">
+          <h2>📦 Meus pedidos</h2>
+          ${state.pedidos.length === 0
+            ? '<div class="empty" data-cy="sem-pedidos">Você ainda não fez nenhum pedido.</div>'
+            : state.pedidos.map(cardPedido).join('')}
+        </div>
+      </div>
+      <div class="col" style="flex:1">
+        ${cardNotificacoes()}
+        ${cardCupons()}
+      </div>
+    </div>`;
+}
+
+// ---------------------------------------------------------------------
+function cardPedido(p) {
+  const pagamentos = (p.pagamentos || []).map(g => `${esc(g.cartaoBandeira)} •••• ${esc(g.cartaoUltimosQuatroDigitos)} (${fmt(g.valor)})`);
+  const cupons = (p.cuponsUtilizados || []).filter(c => c.utilizado).map(c => esc(c.codigo));
+  const troco = (p.cuponsUtilizados || []).filter(c => !c.utilizado);
+  const podeTrocar = p.status === 'ENTREGUE';
+  return `
+  <div class="pedido-card" data-cy="pedido-card" data-id="${p.id}" data-status="${p.status}">
+    <div class="topo">
+      <div class="titulo">Pedido <span data-cy="pedido-numero">#${p.id}</span></div>
+      <span class="status ${p.status}" data-cy="pedido-status" data-status="${p.status}">${statusTexto(p.status)}</span>
+    </div>
+    <div class="linha"><span>Data</span><span>${fmtData(p.dataCriacao)}</span></div>
+    <div class="linha"><span>Entrega</span><span>${esc(p.enderecoResumo)}</span></div>
+    <div class="linha"><span>Pagamento</span><span>${pagamentos.length ? pagamentos.join(' + ') : 'Cupom'}${cupons.length ? ' · cupom ' + cupons.join(', ') : ''}</span></div>
+    <div class="sec">
+      ${(p.itens || []).map(i => `<div class="linha" data-cy="pedido-item"><span>${i.quantidade}× ${esc(i.produtoNome)}</span><span>${fmt(i.subtotal)}</span></div>`).join('')}
+      <div class="linha"><span>Frete</span><span>${fmt(p.frete)}</span></div>
+      <div class="linha" style="font-weight:700;"><span>Total</span><span data-cy="pedido-total">${fmt(p.valorTotal)}</span></div>
+    </div>
+    ${troco.map(c => `<div class="aviso info" style="margin-top:12px;" data-cy="cupom-troco-gerado">Cupom de troco gerado: <b>${esc(c.codigo)}</b> (${fmt(c.valor)})</div>`).join('')}
+    ${p.status === 'REPROVADA' && p.motivoReprovacao
+      ? `<div class="aviso err" style="margin-top:12px;" data-cy="motivo-reprovacao">Pagamento reprovado: ${esc(p.motivoReprovacao)}</div>` : ''}
+    ${(p.solicitacoesTroca || []).map(s => resumoTroca(p, s)).join('')}
+    ${podeTrocar && state.trocaAbertaPedidoId !== p.id
+      ? `<div class="sec"><button class="secondary" data-cy="btn-solicitar-troca" onclick="abrirTroca(${p.id})">Solicitar troca</button></div>` : ''}
+    ${state.trocaAbertaPedidoId === p.id ? formTroca(p) : ''}
+  </div>`;
+}
+
+// Situacao de uma solicitacao de troca, do ponto de vista do cliente.
+function resumoTroca(p, s) {
+  let situacao;
+  if (s.recusada) situacao = `Recusada${s.motivoRecusa ? ' — ' + esc(s.motivoRecusa) : ''}`;
+  else if (s.cupomGerado) situacao = `Concluída — cupom ${esc(s.cupomGerado.codigo)} de ${fmt(s.cupomGerado.valor)} disponível`;
+  else if (p.status === 'TROCA_AUTORIZADA') situacao = 'Autorizada — envie os itens para a loja';
+  else situacao = 'Aguardando autorização da loja';
+  const itens = (s.itens || []).map(i => `${i.quantidade}× ${esc(i.produtoNome)}`).join(', ');
+  return `
+    <div class="troca-resumo" data-cy="troca-resumo" data-id="${s.id}">
+      Troca <b>#${s.id}</b> · ${itens}<br>
+      Motivo: ${esc(s.motivoCliente)}<br>
+      Situação: <b data-cy="troca-situacao">${situacao}</b>
+    </div>`;
+}
+
+// RF0041 - o cliente escolhe os itens (e quantidades) e informa o motivo.
+function formTroca(p) {
+  return `
+    <div class="form-troca" data-cy="form-troca">
+      <h3 class="sublabel" style="margin-top:0;">Solicitar troca — pedido #${p.id}</h3>
+      ${(p.itens || []).map(i => `
+        <div class="item-troca" data-cy="item-troca" data-item-id="${i.id}">
+          <input type="checkbox" id="chk-troca-${i.id}" data-cy="chk-item-troca">
+          <label for="chk-troca-${i.id}" class="nome" style="margin:0; color:var(--text);">${i.quantidade}× ${esc(i.produtoNome)}</label>
+          <span class="muted small">qtd. a trocar</span>
+          <input type="number" id="qtd-troca-${i.id}" data-cy="input-qtd-troca" min="1" max="${i.quantidade}" value="${i.quantidade}">
+        </div>`).join('')}
+      <label>Motivo da troca *</label>
+      <textarea id="motivo-troca" data-cy="i-motivo-troca" placeholder="Descreva o problema"></textarea>
+      <div style="margin-top:12px;">
+        <button class="action sm" data-cy="btn-enviar-troca" onclick="enviarTroca(${p.id})">Enviar solicitação</button>
+        <button class="secondary sm" data-cy="btn-cancelar-troca" onclick="fecharTroca()">Cancelar</button>
+      </div>
+    </div>`;
+}
+
+function abrirTroca(pedidoId) { esconderErro(); state.trocaAbertaPedidoId = pedidoId; render(); }
+function fecharTroca() { state.trocaAbertaPedidoId = null; render(); }
+
+async function enviarTroca(pedidoId) {
+  esconderErro();
+  const pedido = state.pedidos.find(p => p.id === pedidoId);
+  const itens = (pedido.itens || [])
+    .filter(i => document.getElementById(`chk-troca-${i.id}`).checked)
+    .map(i => ({ itemPedidoId: i.id, quantidade: Number(document.getElementById(`qtd-troca-${i.id}`).value) || 0 }));
+  if (itens.length === 0) return mostrarErro('Selecione ao menos um item para trocar.');
+  const motivoCliente = document.getElementById('motivo-troca').value.trim();
+  try {
+    await api(`/pedidos/${pedidoId}/trocas`, { method: 'POST', body: JSON.stringify({ itens, motivoCliente }) });
+    state.trocaAbertaPedidoId = null;
+    await carregar();
+    render();
+    mostrarSucesso(`Solicitação de troca do pedido #${pedidoId} enviada. O pedido agora está EM TROCA, aguardando autorização.`);
+  } catch (e) { mostrarErro(e.message); }
+}
+
+// ---------------------------------------------------------------------
+// RN0046 - notificacoes (troca autorizada/recusada, cupom gerado)
+// ---------------------------------------------------------------------
+function cardNotificacoes() {
+  const naoLidas = state.notificacoes.filter(n => !n.lida).length;
+  return `
+    <div class="card">
+      <h2>🔔 Notificações <span class="badge auto" data-cy="notificacoes-nao-lidas">${naoLidas}</span></h2>
+      ${state.notificacoes.length === 0
+        ? '<div class="empty" data-cy="sem-notificacoes">Nenhuma notificação.</div>'
+        : state.notificacoes.map(n => `
+          <div class="notificacao ${n.lida ? '' : 'nova'}" data-cy="notificacao" data-lida="${n.lida}">
+            <div class="texto">
+              <div data-cy="notificacao-texto">${esc(n.mensagem)}</div>
+              <div class="quando">${fmtData(n.criadaEm)}</div>
+            </div>
+            ${n.lida ? '' : `<button class="link" data-cy="btn-marcar-lida" onclick="marcarLida(${n.id})">marcar como lida</button>`}
+          </div>`).join('')}
+    </div>`;
+}
+
+async function marcarLida(id) {
+  esconderErro();
+  try {
+    await api(`/clientes/${CLIENTE_ID}/notificacoes/${id}/lida`, { method: 'PATCH' });
+    await carregar();
+    render();
+  } catch (e) { mostrarErro(e.message); }
+}
+
+// RF0045 - o cupom de troca e "disponibilizado para o cliente".
+function cardCupons() {
+  return `
+    <div class="card">
+      <h2>🎟️ Meus cupons disponíveis</h2>
+      ${state.cupons.length === 0
+        ? '<div class="empty">Nenhum cupom disponível.</div>'
+        : state.cupons.map(c => `
+          <label class="select-card cupom" style="cursor:default;" data-cy="cupom-row" data-id="${c.id}">
+            <span class="valor">${fmt(c.valor)}</span>
+            <div class="titulo"><span data-cy="cupom-codigo">${esc(c.codigo)}</span> <span class="badge ${c.tipo}">${c.tipo}</span></div>
+          </label>`).join('')}
+    </div>`;
+}
+
+// ---------------------------------------------------------------------
+(async function start() {
+  try {
+    await carregar();
+    render();
+  } catch (e) {
+    document.getElementById('nav-container').innerHTML = renderNav('pedidos');
+    mostrarErro('Não foi possível carregar os dados da API (' + API_BASE + '). ' + e.message);
+  }
+})();
+</script>
+</body>
+</html>

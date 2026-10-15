@@ -20,17 +20,16 @@ import java.math.BigDecimal;
  * - no DRS, "Cadastro de Livros", RF0011 a RF0016, com autor, ISBN,
  * editora, grupo de precificacao com margem de lucro, motivo de
  * inativacao, etc. - e um caso de uso separado, de outra dupla do grupo, e
- * fica fora do escopo desta entrega. Aqui os produtos sao semeados
+ * fica fora do escopo deste modulo. Aqui os produtos sao semeados
  * diretamente (ver ProdutoSeeder) com os campos que a tela de carrinho
  * realmente usa: nome, categoria, fornecedor, preco e estoque.
  *
- * quantidadeEstoque e o unico contador de estoque nesta fase. Nao existe
- * um contador de reserva separado: o bloqueio temporario de item no
- * carrinho (RN0044/RN0045) e a baixa em estoque na aprovacao (RF0053) 
- * estao explicitamente fora do escopo desta entrega (instrucoes do
- * professor), entao quantidadeEstoque nunca muda nesta fase - RN0031 so
- * precisa compara-lo com o que o cliente ja tem no carrinho mais o que
- * esta tentando adicionar (ver CarrinhoService).
+ * quantidadeEstoque e o estoque FISICO: so muda na baixa da aprovacao do
+ * pagamento (RF0053) e na reentrada de uma troca (RF0054). Nao existe um
+ * contador de reserva separado: o que esta bloqueado nos carrinhos
+ * (RN0044) e calculado na hora a partir dos ItemCarrinho com prazo ainda
+ * valido (ver ProdutoService.quantidadeDisponivelPara) e descontado do
+ * estoque disponivel para os OUTROS clientes.
  */
 @Entity
 @Table(name = "produtos")
@@ -67,3 +66,4 @@ public class Produto {
     @Builder.Default
     private boolean ativo = true;
 }
+

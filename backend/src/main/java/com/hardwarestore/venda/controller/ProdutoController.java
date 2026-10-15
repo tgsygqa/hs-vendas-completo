@@ -5,6 +5,7 @@ import com.hardwarestore.venda.service.ProdutoService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -24,8 +25,11 @@ public class ProdutoController {
         this.produtoService = produtoService;
     }
 
+    // clienteId (opcional): a disponibilidade e calculada do ponto de vista
+    // desse cliente - o que OUTROS clientes bloquearam nos carrinhos deles
+    // (RN0044) nao esta disponivel para ele.
     @GetMapping
-    public ResponseEntity<List<ProdutoResponseDTO>> listar() {
-        return ResponseEntity.ok(produtoService.listarDisponiveis());
+    public ResponseEntity<List<ProdutoResponseDTO>> listar(@RequestParam(required = false) Long clienteId) {
+        return ResponseEntity.ok(produtoService.listarDisponiveis(clienteId));
     }
 }

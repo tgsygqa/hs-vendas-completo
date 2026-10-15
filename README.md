@@ -1,107 +1,131 @@
-# Hardware Store — Gestão de Clientes
+# Hardware Store — Clientes e Vendas
 
-CRUD de Cliente conforme o DRS_LES_2_2026 (RF0021 a RF0028, RN0021 a RN0027, RNF0031 a RNF0035), com três partes independentes na mesma pasta: frontend, backend (Spring Boot) e testes automatizados de interface (Cypress).
+E-commerce de hardware (DRS_LES_2_2026). Este repositório reúne os dois casos de uso do projeto, com frontend, backend e testes automatizados:
+
+| Módulo | O que cobre | Requisitos |
+|---|---|---|
+| **Gestão de Clientes** | CRUD de cliente, endereços, cartões, senha, transações | RF0021–RF0028, RN0021–RN0027, RNF0031–RNF0035 |
+| **Vendas (CDU02 completo)** | carrinho → pagamento → aprovação → despacho → entrega → troca → cupom | RF0031–RF0045, RF0053, RF0054, RN0031–RN0046, RNF0042 |
+
+> **Novo aqui? Comece por [`docs/GUIA_PASSO_A_PASSO.md`](docs/GUIA_PASSO_A_PASSO.md)** (instalação no notebook, GitHub, VS Code, Cypress e execução manual).
+> Para apresentar: [`docs/ROTEIRO_APRESENTACAO.md`](docs/ROTEIRO_APRESENTACAO.md). Rastreabilidade RF/RN → testes: [`docs/MATRIZ_RASTREABILIDADE.md`](docs/MATRIZ_RASTREABILIDADE.md).
+
+## Início rápido
+
+Pré-requisitos: **Git, JDK 17 ou 21, Node.js 20+ (LTS)** — o Maven vem embutido (Maven Wrapper) e o banco é o H2 em memória: **não precisa instalar Maven nem PostgreSQL**.
+
+```bash
+npm install                 # 1x: baixa o Cypress, o servidor estático etc.
+
+npm run start:back          # terminal 1 — API em http://localhost:8080
+npm run start:front         # terminal 2 — telas em http://localhost:5500
+```
+
+Abra <http://localhost:5500>. Telas: **Loja** (`vendas.html`), **Meus pedidos** (`pedidos.html`), **Administração** (`admin.html`) e **Clientes** (`V08.html`).
+
+## Testes automatizados
+
+| Comando | O que faz |
+|---|---|
+| `npm run test:vendas` | Sobe backend + frontend sozinho e roda os **81 testes Cypress de Vendas** (headless) |
+| `npm run test:cliente` | Sobe o frontend e roda os **64 testes Cypress de Clientes** (não precisa do backend) |
+| `npm run test:e2e` | Tudo: Clientes + Vendas |
+| `npm run test:vendas:open` | Sobe backend + frontend e abre a **interface do Cypress** (bom para apresentar ao vivo) |
+| `npm run test:backend` | **22 testes de integração JUnit** da API (RN0031–RN0046, fluxo completo) |
+| `npm run cy:open` / `cy:run` | Cypress direto (backend e frontend já precisam estar no ar) |
+
+### Atalhos para a demonstração
+
+| Comando | O que faz |
+|---|---|
+| `npm run start:back:demo` | Backend com prazos de bloqueio **curtos** (3 min, aviso aos 2 min) para mostrar a expiração do carrinho ao vivo. **Só para demonstrar** — os testes Cypress esperam o perfil padrão (`start:back`) |
+| `npm run demo:reset` | Volta a base ao estado inicial sem reiniciar o backend |
+| `npm run demo:cliente2` | Cadastra a Maria Souza (id 2) — para mostrar o bloqueio **entre clientes** (RN0044) |
+| `npm run demo:estoque -- 3 2` | Deixa o produto 3 com 2 unidades — para mostrar o ajuste de estoque da RN0032 |
+| `npm run docs:matriz` | Regenera `docs/MATRIZ_RASTREABILIDADE.md` a partir dos títulos dos testes |
+
+Cada teste de Vendas começa com a base zerada (`POST /api/test-support/reset`), então eles são independentes e podem rodar em qualquer ordem.
 
 ## Estrutura
 
 ```
-hardware-store-clientes/
-├── frontend/                     Interface web (HTML/JS puro)
-│   ├── V08.html                  Tela de Gestão de Clientes
-│   └── index.html                Redireciona para V08.html
-├── backend/                      API REST (Spring Boot 3.3 · Java 17 · PostgreSQL)
-│   ├── pom.xml
-│   └── src/main/
-│       ├── java/com/hardwarestore/
-│       │   ├── cliente/
-│       │   │   ├── ClienteServiceApplication.java
-│       │   │   ├── config/       CorsConfig, DataSeeder
-│       │   │   ├── controller/   ClienteController
-│       │   │   ├── dto/          DTOs de entrada e saída
-│       │   │   ├── model/        Entidades JPA e enums
-│       │   │   ├── repository/   ClienteRepository
-│       │   │   └── service/      ClienteService (regras de negócio)
-│       │   ├── venda/
-│       │   │   ├── config/       ProdutoSeeder, CupomSeeder
-│       │   │   ├── controller/   ProdutoController, CarrinhoController, PedidoController, CupomController
-│       │   │   ├── dto/          DTOs de entrada e saída
-│       │   │   ├── model/        Produto, Carrinho/ItemCarrinho, Pedido/ItemPedido/PagamentoPedido, Cupom
-│       │   │   ├── repository/   ProdutoRepository, CarrinhoRepository, PedidoRepository, CupomRepository
-│       │   │   └── service/      ProdutoService, CarrinhoService, PedidoService, CupomService
-│       │   └── common/
-│       │       ├── aspect/       LogDeEscritaAspect (RNF0012)
-│       │       └── exception/    GlobalExceptionHandler e exceções de negócio
-│       └── resources/application.properties
+hardware-store/
+├── frontend/                      HTML/JS puro, sem build
+│   ├── index.html                 menu das telas
+│   ├── vendas.html                Loja: carrinho, bloqueio/contador, checkout, confirmação
+│   ├── pedidos.html               Meus pedidos: status, solicitar troca, notificações, cupons
+│   ├── admin.html                 Administração: pagamento, despacho, entrega, trocas, estoque
+│   ├── V08.html                   Gestão de Clientes (CRUD; dados em memória, sem API)
+│   └── shared.css / shared.js     estilo e utilitários das telas de Vendas
+├── backend/                       Spring Boot 3.3 · Java 17+ · H2 (padrão) ou PostgreSQL
+│   ├── mvnw / mvnw.cmd            Maven Wrapper (não precisa do Maven instalado)
+│   └── src/main/java/com/hardwarestore/
+│       ├── cliente/               módulo de Clientes
+│       ├── venda/                 módulo de Vendas (controller / service / model / dto / repository / config)
+│       └── common/                exceções, log de escrita (RNF0012) e suporte a testes
 ├── cypress/
-│   ├── e2e/cliente/cliente-crud.cy.js     Suíte E2E (64 testes)
-│   └── support/e2e.js
-├── cypress.config.js
-├── package.json                  Scripts npm (front, back, Cypress)
-├── pom.xml                       POM agregador (IntelliJ/VS Code detectam o backend)
-├── .devcontainer/                Ambiente do Codespace (Java 17, Maven, Node 20, libs do Cypress)
-└── .vscode/                      Tasks e extensões recomendadas
+│   ├── e2e/cliente/               suíte de Clientes (64 testes)
+│   ├── e2e/vendas/                suíte de Vendas (81 testes, 7 arquivos)
+│   └── support/                   comandos e helpers (reset, montagem de cenário via API)
+├── scripts/mvn.js                 roda o Maven Wrapper em qualquer sistema operacional
+├── docs/                          guias e matriz de rastreabilidade
+└── .devcontainer / .vscode        Codespaces e tarefas do VS Code
 ```
 
-## Como rodar no Codespace
+## O caso de uso de Vendas (CDU02)
 
-Abra esta pasta no Codespace (VS Code ou IntelliJ). Se o Codespace pedir para reconstruir o container, aceite: o `.devcontainer` instala Java 17, Maven, Node 20, as bibliotecas do Cypress e roda `npm install`.
-
-Se preferir manter o Codespace atual, basta rodar uma vez, na raiz:
-
-```bash
-npm install
+```
+Cliente                         Administrador                      Status do pedido
+────────────────────────────────────────────────────────────────────────────────────
+monta o carrinho  ──(RN0044: itens bloqueados por 30 min, aviso aos 5 min)
+escolhe endereço, cartões e cupom
+finaliza a compra ───────────────────────────────────────────────▶ EM PROCESSAMENTO
+                                valida o pagamento ──▶ operadora   APROVADA  (baixa em estoque)
+                                                                   REPROVADA (estoque preservado)
+                                despacha ────────────────────────▶ EM TRANSPORTE
+                                confirma a entrega ──────────────▶ ENTREGUE
+solicita a troca (itens + motivo) ───────────────────────────────▶ EM TROCA
+                                autoriza (ou recusa, com motivo) ▶ TROCA AUTORIZADA  → cliente notificado (RN0046)
+                                confirma recebimento ────────────▶ TROCADO
+                                 (itens voltam ou não ao estoque; gera o cupom de troca — RF0045)
+usa o cupom de troca numa nova compra
 ```
 
-### Testes Cypress (o que a apresentação exige)
+### Regras e decisões de implementação
 
-Um comando sobe o frontend na porta 5500 e roda toda a suíte em modo headless:
+- **Operadora de cartão (simulada).** `PagamentoGatewayService` aprova tudo, **exceto** compras com algum cartão terminado em `0000` — assim dá para mostrar o caminho REPROVADA de forma repetível (cadastre um cartão `4111 1111 1111 0000`). Numa compra reprovada o estoque não é tocado (RN0028) e os cupons usados voltam a ficar disponíveis.
+- **Quando o pagamento é validado.** Depois de finalizada, a compra fica `EM PROCESSAMENTO` (RF0038); o administrador aciona **Validar pagamento** no painel (simula o retorno da operadora).
+- **Bloqueio de carrinho (RN0044/RN0045/RNF0042).** O prazo (padrão 30 min, `app.carrinho.bloqueio-minutos`) é renovado a cada item incluído. O estoque que está bloqueado em carrinhos de outros clientes some da disponibilidade deles. Vencido o prazo, o item sai do carrinho e continua listado como *expirado*; o botão de compra fica desabilitado até o cliente adicioná-lo de novo.
+- **RN0032.** Na finalização o estoque é conferido de novo: a quantidade é ajustada automaticamente (ou o item sai do carrinho) e o cliente recebe o alerta.
+- **Frete.** Valor fixo de R$ 24,90 por compra — escolha do grupo, já que o DRS (RF0034) não define a fórmula. A justificativa para apresentar está em [`docs/JUSTIFICATIVA_FRETE.md`](docs/JUSTIFICATIVA_FRETE.md).
+- **Troca recusada.** O DRS só descreve “autorizar”; a recusa (com motivo, pedido volta a `ENTREGUE`) é um caminho assumido.
+- **Sem login.** O DRS não define autenticação: “cliente” e “administrador” são telas diferentes. O cliente das telas de cliente vem da URL (`?clienteId=2`; padrão: João Silva, id 1).
+- **Endereço do pedido** é uma referência ao endereço do cliente (não um instantâneo) — simplificação conhecida.
 
-```bash
-npm run test:e2e
-```
+## Banco de dados
 
-Para acompanhar os testes na interface do Cypress, use dois terminais:
+Padrão: **H2 em memória** — nasce a cada subida do backend já com os dados de demonstração (5 produtos, o cliente João Silva com endereço e cartão, pedidos #1 `ENTREGUE` e #2 `EM TRANSPORTE`, 4 cupons). Para inspecionar: <http://localhost:8080/h2-console> (JDBC URL `jdbc:h2:mem:hardwarestore`, usuário `sa`, senha vazia).
 
-```bash
-npm run start:front     # terminal 1 — http://localhost:5500
-npm run cy:open         # terminal 2
-```
+PostgreSQL (opcional): `npm run start:back:postgres` (usa `localhost:5432`, banco/usuário/senha `hardwarestore`; o `.devcontainer` do Codespace já instala e cria). O perfil `postgres` recria o esquema a cada subida porque os seeders não são idempotentes.
 
-### Backend
+## API (resumo)
 
-```bash
-npm run start:back      # http://localhost:8080
-```
+| Área | Endpoints |
+|---|---|
+| Catálogo | `GET /api/produtos?clienteId=` |
+| Carrinho | `GET /api/clientes/{id}/carrinho` · `POST …/carrinho/itens` · `PATCH …/itens/{itemId}` · `DELETE …/itens/{itemId}` · `POST …/expirados/{id}/readicionar` · `DELETE …/expirados/{id}` |
+| Compra | `POST /api/clientes/{id}/pedidos` · `GET /api/clientes/{id}/pedidos` · `GET /api/clientes/{id}/cupons` |
+| Administração | `GET /api/pedidos?status=` · `PATCH /api/pedidos/{id}/validar-pagamento` · `…/despachar` · `…/confirmar-entrega` |
+| Troca | `POST /api/pedidos/{id}/trocas` · `GET /api/trocas` · `PATCH /api/trocas/{id}/autorizar` · `…/recusar` · `…/confirmar-recebimento` |
+| Notificações | `GET /api/clientes/{id}/notificacoes` · `PATCH …/{id}/lida` |
+| Clientes | `/api/clientes` (CRUD, endereços, cartões, senha, transações) |
+| Suporte a testes | `POST /api/test-support/reset` e afins — só existem com `app.test-support.enabled=true` (padrão no H2; **desligado** no perfil `postgres`) |
 
-Ou `mvn -f backend/pom.xml spring-boot:run`. No VS Code também há tasks prontas em *Terminal → Run Task*.
-
-O banco é PostgreSQL. No Codespace, o `.devcontainer` instala o Postgres e cria o banco `hardwarestore` (usuário e senha `hardwarestore`) automaticamente; fora do Codespace, crie esse banco e usuário a mão, ou ajuste `backend/src/main/resources/application.properties`. Para inspecionar os dados, use `psql -h localhost -U hardwarestore -d hardwarestore` ou uma extensão de banco de dados do VS Code. A cada subida, o `ProdutoSeeder` cria produtos de exemplo e o `DataSeeder` cria o cliente João Silva com endereço, cartão e dois pedidos, o mesmo mock do frontend.
-
-Endpoints (`/api/clientes`): `POST /`, `GET /` (filtros nome, cpf, email, ativo), `GET /{id}`, `PUT /{id}`, `PATCH /{id}/inativar`, `PATCH /{id}/reativar`, `DELETE /{id}`, `GET /{id}/transacoes`, `POST /{id}/enderecos`, `DELETE /{id}/enderecos/{enderecoId}`, `POST /{id}/cartoes`, `PATCH /{id}/cartoes/{cartaoId}/preferencial`, `DELETE /{id}/cartoes/{cartaoId}`, `PATCH /{id}/senha`.
-
-### Módulo de Vendas (fluxo de sucesso - entrega de 06/10)
-
-Implementa exatamente o escopo definido pelo professor para a apresentação de 06/10: do carrinho até a finalização da compra, parando no status `EM_PROCESSAMENTO`. **Não** inclui validação de pagamento, aprovação/reprovação, despacho, confirmação de entrega, baixa em estoque, nem bloqueio/expiração de item no carrinho - tudo isso está explicitamente fora do escopo desta fase (instruções do professor) e fica para a entrega de 20/10, com o caso de uso completo.
-
-Endpoints:
-- `GET /api/produtos` - lista produtos disponíveis.
-- `GET /api/clientes/{id}/carrinho`, `POST /api/clientes/{id}/carrinho/itens`, `PATCH /api/clientes/{id}/carrinho/itens/{itemId}`, `DELETE /api/clientes/{id}/carrinho/itens/{itemId}` - RF0031/RF0032, com RN0031 (estoque) validado em cada adição/alteração.
-- `GET /api/clientes/{id}/cupons` - cupons (promocionais de uso geral + de troca do cliente) disponíveis para pagamento.
-- `POST /api/clientes/{id}/pedidos` - finaliza a compra (RF0033 a RF0038): recebe `enderecoId`, uma lista `cartoes` (cada item com `cartaoId` e `valor`) e uma lista opcional `cupomIds`. Valida RN0033 (um promocional por compra), RN0034 (mínimo R$ 10,00 por cartão quando há mais de um, sem cupom combinado), RN0035 (a exigência dos R$ 10,00 é dispensada quando há cupom combinado) e RN0036 (cupom de troco quando os cupons superam o valor da compra, sem permitir cupom desnecessário). Devolve o pedido já criado com status `EM_PROCESSAMENTO`.
-- `GET /api/pedidos`, `GET /api/pedidos/{id}` - consulta.
-
-Endereço e cartão novos cadastrados **durante** a compra (RF0035/RF0036) não têm endpoint próprio: o front chama primeiro `POST /api/clientes/{id}/enderecos` ou `/cartoes` (que já incorporam ao perfil), pega o id devolvido, e só então finaliza a compra com esse id - os mesmos endpoints do módulo Cliente, reaproveitados.
-
-RNF0011 (tempo de resposta) não exige código específico - nenhuma consulta do projeto faz nada custoso o bastante para se aproximar de 1 segundo. RNF0012 (log das operações de escrita) é cuidado por um aspecto (`common/aspect/LogDeEscritaAspect`), que intercepta automaticamente todo método `@Transactional` dos módulos de Cliente e Vendas - nenhum service precisa chamar log manualmente.
-
-## Estado atual da integração
-
-- O frontend (`V08.html`) guarda os dados em memória e **ainda não chama a API**. Os testes Cypress do CRUD de Cliente validam o frontend sozinho, por isso não precisam do backend no ar. O módulo de Vendas ainda não tem frontend (próxima fase).
-- O backend cobre RNF0033 (senha em hash BCrypt), RNF0031/RNF0032 (senha forte e confirmação), RNF0012 (log de escrita) e as regras de negócio de RF0021 a RF0028 e RF0031 a RF0038.
-- Diferenças do backend em relação ao frontend atual do Cliente: não existe endpoint para alterar um endereço (RNF0034), a listagem não filtra por código, telefone, gênero, data de nascimento e ranking (RF0024), e o ranking (RN0027) nasce em 0 sem cálculo.
-- O backend valida o CPF com dígitos verificadores; os CPFs fictícios da suíte Cypress (`111.222.333-XX`) seriam recusados caso o frontend fosse ligado a ele.
+Erros de regra de negócio voltam como **409**, validação como **400**, não encontrado como **404**, sempre com `{"mensagem": "..."}`.
 
 ## Observações
 
-- Use JDK 17 a 21. O Lombok da versão do Spring Boot usada aqui não suporta JDKs muito novos (a pasta `.idea` original apontava para o JDK 26, e por isso ela não foi incluída).
-- Na primeira execução o Maven baixa as dependências; leva alguns minutos.
+- Use **JDK 17 a 21** (o Lombok desta versão do Spring Boot não suporta JDKs muito novos).
+- Na primeira execução o Maven baixa as dependências (alguns minutos) e o `npm install` baixa o binário do Cypress (~250 MB).
+- RNF0012 (log de escrita): o aspecto `LogDeEscritaAspect` registra, no terminal do backend, toda operação de escrita (data/hora, operação, usuário/1º argumento, resultado).
+- O backend valida o CPF com dígitos verificadores; os CPFs fictícios da suíte de Clientes (`111.222.333-XX`) só valem no front, que guarda os dados em memória.

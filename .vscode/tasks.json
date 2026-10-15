@@ -2,6 +2,13 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "Backend: Spring Boot (porta 8080, banco H2)",
+      "type": "shell",
+      "command": "npm run start:back",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
       "label": "Frontend: servir (porta 5500)",
       "type": "shell",
       "command": "npm run start:front",
@@ -9,22 +16,33 @@
       "problemMatcher": []
     },
     {
-      "label": "Backend: Spring Boot (porta 8080)",
+      "label": "Cypress: abrir interface (precisa de backend e frontend no ar)",
       "type": "shell",
-      "command": "npm run start:back",
-      "isBackground": true,
+      "command": "npm run cy:open",
       "problemMatcher": []
     },
     {
-      "label": "Cypress: testes E2E (headless)",
+      "label": "Testes: Vendas (sobe backend + frontend e roda o Cypress headless)",
+      "type": "shell",
+      "command": "npm run test:vendas",
+      "problemMatcher": []
+    },
+    {
+      "label": "Testes: Clientes (sobe o frontend e roda o Cypress headless)",
+      "type": "shell",
+      "command": "npm run test:cliente",
+      "problemMatcher": []
+    },
+    {
+      "label": "Testes: TUDO (Clientes + Vendas)",
       "type": "shell",
       "command": "npm run test:e2e",
       "problemMatcher": []
     },
     {
-      "label": "Cypress: abrir interface",
+      "label": "Testes: backend (JUnit, integração da API)",
       "type": "shell",
-      "command": "npm run cy:open",
+      "command": "npm run test:backend",
       "problemMatcher": []
     }
   ]

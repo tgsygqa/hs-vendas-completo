@@ -7,11 +7,9 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 /**
- * So consulta - a geracao de cupom de troca a partir de uma devolucao
- * (RF0045) esta fora de escopo; os cupons existem porque o CupomSeeder os
- * pre-carrega (instrucoes do professor autorizam isso explicitamente). O
- * cupom de troco gerado pela RN0036 nasce dentro do PedidoService, no
- * momento da compra.
+ * So consulta os cupons que o cliente pode usar. Quem GERA cupons e o
+ * PedidoService: o cupom de troco (RN0036), na finalizacao da compra, e o
+ * cupom de troca (RF0045), na confirmacao do recebimento dos itens devolvidos.
  */
 @Service
 public class CupomService {

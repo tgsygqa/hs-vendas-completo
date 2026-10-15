@@ -26,7 +26,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Popula o banco Postgres com o mesmo cliente mock ("Joao Silva") usado no
+ * Popula o banco (H2 em memoria por padrao; ver application.properties) com o mesmo cliente mock ("Joao Silva") usado no
  * front (V08.html), incluindo endereco, cartao e 2 pedidos de exemplo -
  * para que a demonstracao em sala parta de um estado realista. Roda uma vez
  * a cada subida da aplicacao.
@@ -104,13 +104,13 @@ public class DataSeeder implements CommandLineRunner {
                 .findFirst().orElseThrow();
 
         // Pedido de exemplo 1 - ja entregue (ENTREGUE), para RF0025 e para
-        // poder exercitar o fluxo de troca mais adiante (20/10).
+        // poder exercitar o fluxo de troca (RF0041 a RF0045) logo de cara.
         Pedido pedidoEntregue = Pedido.builder()
                 .cliente(joao)
                 .status(StatusPedido.ENTREGUE)
                 .enderecoEntrega(endereco)
-                .frete(new BigDecimal("45.00"))
-                .valorTotal(new BigDecimal("1295.00"))
+                .frete(new BigDecimal("24.90"))
+                .valorTotal(new BigDecimal("1274.90"))
                 .dataCriacao(LocalDateTime.now().minusDays(10))
                 .build();
         pedidoEntregue.getItens().add(ItemPedido.builder()
@@ -122,7 +122,7 @@ public class DataSeeder implements CommandLineRunner {
         pedidoEntregue.getPagamentos().add(PagamentoPedido.builder()
                 .pedido(pedidoEntregue)
                 .cartao(cartao)
-                .valor(new BigDecimal("1295.00"))
+                .valor(new BigDecimal("1274.90"))
                 .build());
         pedidoRepository.save(pedidoEntregue);
 
