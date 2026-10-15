@@ -8,12 +8,12 @@
 // URL: ?clienteId=2. Sem parametro, usa o Joao Silva semeado (id 1).
 const CLIENTE_ID = Number(new URLSearchParams(window.location.search).get('clienteId')) || 1;
 
-// Em localhost a API fica em :8080; no GitHub Codespaces, a porta 5500 do front
-// vira a porta 8080 do back trocando o numero no host (ex.: xxx-5500.app.github.dev).
+// Em localhost a API fica em :8080; no GitHub Codespaces, a porta 5600 do front
+// vira a porta 8080 do back trocando o numero no host (ex.: xxx-5600.app.github.dev).
 const API_BASE = (() => {
   const { hostname, protocol, port } = window.location;
   if (hostname.endsWith('.github.dev')) {
-    const p = port || '5500';
+    const p = port || '5600';
     const novoHost = hostname.replace(`-${p}.`, '-8080.');
     return `${protocol}//${novoHost}/api`;
   }

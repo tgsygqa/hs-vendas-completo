@@ -2,7 +2,7 @@
 // Cadastra a cliente "Maria Souza" (id 2) no backend. Serve para demonstrar o
 // bloqueio de itens entre clientes (RN0044): o que o João coloca no carrinho
 // fica indisponível para a Maria, que abre a loja em
-//   http://localhost:5500/vendas.html?clienteId=2
+//   http://localhost:5600/vendas.html?clienteId=2
 // (O módulo de Clientes da tela V08.html guarda dados só em memória no navegador;
 // por isso este cadastro é feito direto na API.)
 const API = process.env.API_URL || 'http://localhost:8080/api';
@@ -20,10 +20,10 @@ const maria = {
   const corpo = await r.json().catch(() => ({}));
   if (r.status === 201) {
     console.log(`Cliente criada: ${corpo.nome} (id ${corpo.id}).`);
-    console.log(`Loja da Maria:   http://localhost:5500/vendas.html?clienteId=${corpo.id}`);
-    console.log(`Pedidos da Maria: http://localhost:5500/pedidos.html?clienteId=${corpo.id}`);
+    console.log(`Loja da Maria:   http://localhost:5600/vendas.html?clienteId=${corpo.id}`);
+    console.log(`Pedidos da Maria: http://localhost:5600/pedidos.html?clienteId=${corpo.id}`);
   } else if (r.status === 409) {
-    console.log('A Maria já está cadastrada (provavelmente id 2): http://localhost:5500/vendas.html?clienteId=2');
+    console.log('A Maria já está cadastrada (provavelmente id 2): http://localhost:5600/vendas.html?clienteId=2');
   } else {
     throw new Error(`HTTP ${r.status} ${JSON.stringify(corpo)}`);
   }

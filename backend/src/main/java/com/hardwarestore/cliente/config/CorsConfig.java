@@ -8,7 +8,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 /**
  * Libera o acesso da API para o frontend rodando localmente (ex.: live-server,
  * Vite, http-server) e para portas encaminhadas pelo GitHub Codespaces, cujo
- * dominio e dinamico (ex.: https://SEU-CODESPACE-5500.app.github.dev).
+ * dominio e dinamico (ex.: https://SEU-CODESPACE-5600.app.github.dev).
  *
  * Em produção, restrinja allowedOriginPatterns ao(s) dominio(s) reais do
  * frontend em vez de aceitar qualquer porta/subdominio.

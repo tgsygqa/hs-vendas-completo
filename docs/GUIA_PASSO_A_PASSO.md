@@ -126,18 +126,18 @@ Abra **dois terminais** (no VS Code: Terminal → Novo Terminal, e o botão **Di
 | Terminal | Comando | Pronto quando |
 |---|---|---|
 | 1 — backend | `npm run start:back` | aparece `Started ClienteServiceApplication in … seconds` (porta **8080**) |
-| 2 — frontend | `npm run start:front` | o terminal **fica em silêncio** (é o normal; no máximo um aviso `DeprecationWarning`, inofensivo) — confirme abrindo <http://localhost:5500> |
+| 2 — frontend | `npm run start:front` | o terminal **fica em silêncio** (é o normal; no máximo um aviso `DeprecationWarning`, inofensivo) — confirme abrindo <http://localhost:5600> |
 
-*(Equivalentes sem o npm: `cd backend` + `mvnw.cmd spring-boot:run` (Windows) ou `./mvnw spring-boot:run` (macOS/Linux); e `npx http-server frontend -p 5500 -c-1`.)*
+*(Equivalentes sem o npm: `cd backend` + `mvnw.cmd spring-boot:run` (Windows) ou `./mvnw spring-boot:run` (macOS/Linux); e `npx http-server frontend -p 5600 -c-1`.)*
 
-Abra no navegador **<http://localhost:5500>** e escolha a tela:
+Abra no navegador **<http://localhost:5600>** e escolha a tela:
 
 | Tela | Endereço | Quem usa |
 |---|---|---|
-| Loja | <http://localhost:5500/vendas.html> | cliente |
-| Meus pedidos | <http://localhost:5500/pedidos.html> | cliente |
-| Administração | <http://localhost:5500/admin.html> | administrador |
-| Gestão de Clientes | <http://localhost:5500/V08.html> | CRUD de clientes |
+| Loja | <http://localhost:5600/vendas.html> | cliente |
+| Meus pedidos | <http://localhost:5600/pedidos.html> | cliente |
+| Administração | <http://localhost:5600/admin.html> | administrador |
+| Gestão de Clientes | <http://localhost:5600/V08.html> | CRUD de clientes |
 | Console do banco (H2) | <http://localhost:8080/h2-console> | JDBC URL `jdbc:h2:mem:hardwarestore`, usuário `sa`, senha vazia |
 
 Para **parar**, `Ctrl+C` em cada terminal. Como o banco é em memória, **ao reiniciar o backend tudo volta ao estado inicial**. Sem reiniciar, rode `npm run demo:reset`.
@@ -183,6 +183,14 @@ npm run test:vendas:open
 
 Sobe backend + frontend e abre o Cypress. Na janela: **E2E Testing → escolha o navegador (Electron ou Chrome) → Start E2E Testing** → clique no arquivo desejado. Sugestão para a apresentação: **`06-caso-de-uso-completo.cy.js`** — um único teste que percorre o CDU02 inteiro pela tela (~20 s). Ao fechar a janela do Cypress, o backend e o frontend são desligados.
 
+**Se a janela do Cypress abrir em branco** (acontece em algumas máquinas Windows por causa da placa de vídeo/driver; no terminal aparece `Terminating renderer for bad IPC message`), use o modo que **não precisa dessa janela**:
+
+```
+npm run test:vendas:ao-vivo
+```
+
+Ele sobe tudo e roda o caso de uso completo (CTV100) num **Edge visível**, com o painel do Cypress (lista de passos à esquerda, a loja à direita), e depois desliga os servidores. Para usar o Chrome: `npm run test:vendas:ao-vivo -- --browser chrome`. O mesmo vale para a suíte inteira: `npm run test:vendas -- --headed --browser edge`.
+
 ### 6.3 Passo a passo **manual** dos testes (sem os atalhos)
 
 Se preferir controlar cada peça (3 terminais):
@@ -212,8 +220,10 @@ Cada teste de Vendas começa chamando `POST /api/test-support/reset`, que apaga 
 | `execução de scripts desabilitada` (PowerShell) | `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` ou use o **Prompt de Comando**. |
 | `java` não reconhecido / `JAVA_HOME` | Instale o JDK 17 marcando *Set JAVA_HOME* e *Add to PATH*; reabra o terminal. Confira `java -version`. |
 | Erro de compilação do Lombok / `Unsupported class file` / `ExceptionInInitializerError` | JDK novo demais (22+). Use JDK **17 ou 21**. |
-| `Port 8080 was already in use` / `EADDRINUSE 5500` | Algo já usa a porta (talvez o backend de um teste anterior). Windows: `netstat -ano \| findstr :8080` e `taskkill /PID <número> /F`. macOS/Linux: `lsof -i :8080` e `kill <pid>`. |
-| `npm run test:vendas` diz *"Já existe um backend respondendo na porta 8080"* (ou 5500) | Sobrou um servidor de uma execução anterior (ou você deixou `npm run start:back` aberto). Feche-o com `Ctrl+C` no terminal dele — ou, se não achar, `taskkill /F /IM java.exe` (Windows) / `pkill -f spring-boot` (macOS/Linux). O comando recusa de propósito, para os testes não rodarem contra um backend em outro perfil. |
+| `Port 8080 was already in use` / `EADDRINUSE 5600` | Algo já usa a porta (talvez o backend de um teste anterior). Windows: `netstat -ano \| findstr :8080` e `taskkill /PID <número> /F`. macOS/Linux: `lsof -i :8080` e `kill <pid>`. |
+| `npm run test:vendas` diz *"A porta 5600 (ou 8080) já está em uso por outro programa"* | Sobrou um servidor de uma execução anterior, você deixou `npm run start:back`/`start:front` aberto, ou outra ferramenta usa a porta. A mensagem já traz os comandos para achar o programa: `netstat -ano \| findstr :5600`, `tasklist /FI "PID eq <PID>"` e, se for seguro, `taskkill /PID <PID> /F`. O comando recusa de propósito: com outro programa na porta, o Cypress receberia respostas erradas (ou conexões derrubadas — `ECONNRESET`) em vez das telas do projeto. |
+| `npm run test:vendas:open` abre a janela do Cypress **toda branca** e o terminal mostra `Terminating renderer for bad IPC message` | Falha de renderização do Electron do Cypress (costuma ser GPU/driver). Não é problema do projeto. Alternativas, nesta ordem: **(1)** `npm run test:vendas:ao-vivo` (usa o Edge, sem a janela do Cypress); **(2)** `npm run test:vendas` (sem janela) para ver os 81 testes passarem; **(3)** tentar a janela de novo sem aceleração de vídeo: PowerShell `$env:ELECTRON_EXTRA_LAUNCH_ARGS="--disable-gpu"` (cmd: `set ELECTRON_EXTRA_LAUNCH_ARGS=--disable-gpu`) e depois `npm run test:vendas:open` *(não confirmado: pode não ter efeito)*; **(4)** atualizar o driver da placa de vídeo e o Windows. |
+| Os testes (ou as telas) falham com `ECONNRESET` / `000` no `curl` e o `http-server` parece normal | Confira com `netstat -ano \| findstr :5600` se há **dois** programas na mesma porta. O projeto usa a **5600** justamente porque a **5500** costuma estar ocupada: o *Live Server* do VS Code e o **Oracle Database** (`tnslsnr.exe`, EM Express) usam a 5500 e derrubam conexões HTTP comuns. |
 | Terminal "parado" por minutos na primeira execução | O Maven está baixando dependências (2–5 min). Espere. |
 | Firewall do Windows pergunta sobre o Java/Node | Clique em **Permitir** (rede privada). |
 | `npm install` trava no Cypress / erro de download | Firewall ou proxy bloqueando `download.cypress.io`. Libere o domínio ou, atrás de proxy, defina `HTTPS_PROXY` antes; depois `npx cypress install`. Rede da faculdade costuma bloquear — teste com o celular como roteador. |
@@ -226,4 +236,4 @@ Cada teste de Vendas começa chamando `POST /api/test-support/reset`, que apaga 
 
 ### No GitHub Codespaces
 
-Abra o repositório no Codespace; o `.devcontainer` instala Java, Node e as bibliotecas do Cypress e roda `npm install`. Depois é só `npm run test:vendas`. As telas detectam o Codespace sozinhas (porta 5500 do front → 8080 da API); deixe a porta **8080 pública** (aba *Ports*) para o navegador conseguir chamar a API.
+Abra o repositório no Codespace; o `.devcontainer` instala Java, Node e as bibliotecas do Cypress e roda `npm install`. Depois é só `npm run test:vendas`. As telas detectam o Codespace sozinhas (porta 5600 do front → 8080 da API); deixe a porta **8080 pública** (aba *Ports*) para o navegador conseguir chamar a API.

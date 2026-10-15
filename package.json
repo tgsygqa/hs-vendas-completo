@@ -4,7 +4,7 @@
   "private": true,
   "description": "Hardware Store - Clientes e Vendas (frontend, backend Spring Boot e testes Cypress)",
   "scripts": {
-    "start:front": "http-server frontend -p 5500 -c-1 --silent",
+    "start:front": "http-server frontend -p 5600 -c-1 --silent",
     "start:back": "node scripts/mvn.js spring-boot:run",
     "start:back:demo": "node scripts/mvn.js spring-boot:run -Dspring-boot.run.profiles=demo",
     "start:back:postgres": "node scripts/mvn.js spring-boot:run -Dspring-boot.run.profiles=postgres",
@@ -19,6 +19,7 @@
     "test:cliente": "node scripts/run-with-servers.js cliente",
     "test:vendas": "node scripts/run-with-servers.js vendas",
     "test:vendas:open": "node scripts/run-with-servers.js vendas-open",
+    "test:vendas:ao-vivo": "node scripts/run-with-servers.js ao-vivo",
     "test:e2e": "node scripts/run-with-servers.js tudo",
     "docs:matriz": "node scripts/gerar-matriz.js"
   },

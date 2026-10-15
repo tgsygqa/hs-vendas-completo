@@ -18,10 +18,10 @@ Pré-requisitos: **Git, JDK 17 ou 21, Node.js 20+ (LTS)** — o Maven vem embuti
 npm install                 # 1x: baixa o Cypress, o servidor estático etc.
 
 npm run start:back          # terminal 1 — API em http://localhost:8080
-npm run start:front         # terminal 2 — telas em http://localhost:5500
+npm run start:front         # terminal 2 — telas em http://localhost:5600
 ```
 
-Abra <http://localhost:5500>. Telas: **Loja** (`vendas.html`), **Meus pedidos** (`pedidos.html`), **Administração** (`admin.html`) e **Clientes** (`V08.html`).
+Abra <http://localhost:5600>. Telas: **Loja** (`vendas.html`), **Meus pedidos** (`pedidos.html`), **Administração** (`admin.html`) e **Clientes** (`V08.html`).
 
 ## Testes automatizados
 
@@ -31,6 +31,7 @@ Abra <http://localhost:5500>. Telas: **Loja** (`vendas.html`), **Meus pedidos** 
 | `npm run test:cliente` | Sobe o frontend e roda os **64 testes Cypress de Clientes** (não precisa do backend) |
 | `npm run test:e2e` | Tudo: Clientes + Vendas |
 | `npm run test:vendas:open` | Sobe backend + frontend e abre a **interface do Cypress** (bom para apresentar ao vivo) |
+| `npm run test:vendas:ao-vivo` | Roda o caso de uso completo (CTV100) num **Edge visível** (Chrome: `-- --browser chrome`), sem a janela inicial do Cypress — plano B se ela abrir em branco |
 | `npm run test:backend` | **22 testes de integração JUnit** da API (RN0031–RN0046, fluxo completo) |
 | `npm run cy:open` / `cy:run` | Cypress direto (backend e frontend já precisam estar no ar) |
 

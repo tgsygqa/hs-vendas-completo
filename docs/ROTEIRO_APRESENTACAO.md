@@ -5,7 +5,7 @@ Tudo aqui foi percorrido de ponta a ponta no navegador antes de virar roteiro. O
 ## 0. Preparação (5 min antes)
 
 1. Dois terminais: `npm run start:back` e `npm run start:front` (ou `npm run start:back:demo`, se for mostrar a expiração do carrinho — seção 3-D).
-2. Abra em abas: **Loja** `localhost:5500/vendas.html` · **Meus pedidos** `…/pedidos.html` · **Administração** `…/admin.html`. (Opcional: console do banco `localhost:8080/h2-console`.)
+2. Abra em abas: **Loja** `localhost:5600/vendas.html` · **Meus pedidos** `…/pedidos.html` · **Administração** `…/admin.html`. (Opcional: console do banco `localhost:8080/h2-console`.)
 3. Se já usou o sistema: `npm run demo:reset` (volta tudo ao início **sem** reiniciar).
 4. Deixe o terminal do backend visível: cada escrita aparece como `OPERACOES_DE_ESCRITA … resultado=sucesso|falha` (**RNF0012**).
 
@@ -46,6 +46,7 @@ Tudo aqui foi percorrido de ponta a ponta no navegador antes de virar roteiro. O
 npm run test:vendas:open
 ```
 Na janela do Cypress: **E2E Testing → navegador → Start E2E Testing → `06-caso-de-uso-completo.cy.js`**. O mesmo caminho da seção 1 roda sozinho em ~20 s, com cada passo anotado (`cy.log`).
+> **Plano B** (se a janela do Cypress abrir em branco): `npm run test:vendas:ao-vivo` roda o mesmo caso de uso num Edge visível, sem a janela inicial do Cypress. Teste antes da apresentação, na máquina que vai usar.
 Para o panorama geral: `npm run test:vendas` (headless) mostra **81 testes** passando; `docs/MATRIZ_RASTREABILIDADE.md` liga cada RF/RN aos testes.
 
 ---

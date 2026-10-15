@@ -9,7 +9,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Frontend: servir (porta 5500)",
+      "label": "Frontend: servir (porta 5600)",
       "type": "shell",
       "command": "npm run start:front",
       "isBackground": true,

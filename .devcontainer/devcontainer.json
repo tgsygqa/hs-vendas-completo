@@ -6,9 +6,9 @@
     "ghcr.io/devcontainers/features/node:2.1.1": { "version": "20" }
   },
   "remoteUser": "root",
-  "forwardPorts": [5500, 8080, 5432],
+  "forwardPorts": [5600, 8080, 5432],
   "portsAttributes": {
-    "5500": { "label": "Frontend (V08.html)", "onAutoForward": "notify" },
+    "5600": { "label": "Frontend (V08.html)", "onAutoForward": "notify" },
     "8080": { "label": "Backend (Spring Boot)", "onAutoForward": "notify", "visibility": "public" },
     "5432": { "label": "PostgreSQL", "onAutoForward": "silent" }
   },
