@@ -2,11 +2,10 @@
 
 Este guia leva você de **"notebook sem nada"** até **"testes Cypress rodando"**. Os comandos de exemplo são para **Windows** (PowerShell ou Prompt de Comando); macOS/Linux têm notas ao lado.
 
-> **Resumo em 6 comandos** (depois de instalar Git, JDK 17 e Node.js — seção 1):
+> **Resumo em 5 comandos** (depois de instalar Git, JDK 17 e Node.js — seção 1):
 > ```
-> git clone https://github.com/tgsygqa/hs-compras.git hardware-store
-> cd hardware-store
-> git switch vendas-completo
+> git clone https://github.com/tgsygqa/hs-vendas-completo.git
+> cd hs-vendas-completo
 > npm install
 > npm run test:vendas          # roda os 81 testes Cypress de Vendas sozinho
 > npm run test:vendas:open     # ou abre a interface do Cypress (para apresentar)
@@ -52,49 +51,36 @@ npm -v
 
 ## 2. Levar o código para o notebook pelo GitHub
 
-### 2.0 Conferir **qual** repositório do GitHub vai receber o código
+A versão final do código (histórico completo, inclusive os commits anteriores do grupo) está publicada em:
 
-A pasta que você recebeu traz, escondido, o endereço do repositório de onde ela foi clonada. Veja qual é:
+**<https://github.com/tgsygqa/hs-vendas-completo>** (branch `main`)
 
-```
-git remote -v
-```
+A versão anterior continua em `tgsygqa/hs-compras` (a `main` de lá não foi alterada; existe só uma branch `vendas-completo` com a mesma versão do código).
 
-Deve aparecer `origin  https://github.com/tgsygqa/hs-compras.git`. Antes de fazer o `push`, confirme **três coisas**:
-
-1. **É o repositório do seu grupo para esta entrega?** Abra o endereço no navegador. O último commit (14/10) foi de *Samuel Vieira de Souza*. Se o grupo usa **outro** repositório para a apresentação, aponte para ele: `git remote set-url origin https://github.com/CONTA/REPOSITORIO.git`.
-2. **Você tem permissão de escrita nele?** Se o repositório é de outra pessoa do grupo, ela precisa te adicionar em *Settings → Collaborators*; senão o `git push` dá erro `403`. (Se não tiver, dá para fazer um *fork* e enviar para o seu.)
-3. **O notebook consegue entrar nele?** Se o repositório for **privado**, o notebook precisa estar logado no GitHub (o Git abre o navegador para o login na primeira vez).
-
-### 2.1 No computador onde está o projeto atual
-
-A pasta que recebeu (`hardware-store`) **já é um clone do repositório do grupo** (`origin = https://github.com/tgsygqa/hs-compras.git`, confirme com `git remote -v`) e contém as mudanças ainda **não commitadas**. Então basta:
+### 2.1 No notebook (primeira vez)
 
 ```
-cd C:\caminho\para\hardware-store
-git status                                   # mostra os arquivos alterados/novos
-git switch -c vendas-completo                # cria uma branch para a entrega
-git add -A
-git commit -m "Vendas completo: troca, bloqueio de carrinho, painel admin e testes Cypress"
-git push -u origin vendas-completo
-```
-
-*(O VS Code faz o mesmo pela aba **Controle do Código-Fonte**: escreva a mensagem, **Commit**, **Publish Branch**.)*
-
-Se você já tem **outra** cópia do repositório (por exemplo a da pasta `Compra` ou a do Codespace), copie o conteúdo desta pasta **por cima** dela (menos as pastas `node_modules` e `backend/target`), e rode os mesmos comandos acima.
-
-> Subir numa **branch** (`vendas-completo`) em vez de direto na `main` deixa você revisar antes; depois, no GitHub, faça o *Pull Request/merge* se quiser que a `main` fique com a versão final.
-
-### 2.2 No notebook
-
-```
-git clone https://github.com/tgsygqa/hs-compras.git hardware-store
-cd hardware-store
-git switch vendas-completo        # (ou fique na main, se já tiver feito o merge)
+git clone https://github.com/tgsygqa/hs-vendas-completo.git
+cd hs-vendas-completo
 code .                            # abre no VS Code
 ```
 
-Se o repositório for **privado**, o Git pede o login do GitHub na primeira vez (abre o navegador). O notebook precisa de acesso à internet nesta etapa e no `npm install`.
+Se o repositório for **privado**, o Git pede o login do GitHub na primeira vez (abre o navegador) — entre com a conta dona do repositório ou uma que tenha acesso. O notebook precisa de internet nesta etapa e no `npm install`.
+
+### 2.2 Depois, para enviar mudanças que você fizer
+
+```
+git status                        # mostra os arquivos alterados/novos
+git add -A
+git commit -m "descreva a mudança"
+git push
+```
+
+*(O VS Code faz o mesmo pela aba **Controle do Código-Fonte**: escreva a mensagem, **Commit**, **Sync Changes**.)* Se o `git commit` reclamar de identidade, configure uma vez: `git config --global user.name "Seu Nome"` e `git config --global user.email "seu@email.com"`.
+
+### 2.3 Se preferir usar a pasta recebida em vez de clonar
+
+A pasta `hardware-store` do pacote `.zip` é um clone do repositório antigo (`hs-compras`). Para usá-la com o repositório novo: `git remote set-url origin https://github.com/tgsygqa/hs-vendas-completo.git`. Mas o jeito mais simples é clonar de novo (2.1).
 
 ---
 
