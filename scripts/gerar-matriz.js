@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Gera docs/MATRIZ_RASTREABILIDADE.md a partir dos títulos dos testes Cypress de
 // Vendas (cypress/e2e/vendas/*.cy.js). Cada título termina com os requisitos que
-// o teste cobre, ex.: "CTV007 — não deve permitir ... (RN0031)".
+// o teste cobre, ex.: "3. não deve permitir adicionar item indisponível ... (RN0031)".
 //   npm run docs:matriz
 const fs = require('fs');
 const path = require('path');
@@ -32,7 +32,7 @@ const SITUACAO_ESPECIAL = {
 
 const expandir = (texto) => {
   const reqs = new Set(texto.match(/R(?:F|N|NF)\d{4}/g) || []);
-  for (const [, pref, a, b] of texto.matchAll(/(R[FN])(\d{4})-R[FN](\d{4})/g)) {
+  for (const [, pref, a, b] of texto.matchAll(/(R[FN])(\d{4})\s*(?:-|a)\s*R[FN](\d{4})/g)) {
     for (let n = Number(a); n <= Number(b); n++) reqs.add(`${pref}${String(n).padStart(4, '0')}`);
   }
   return reqs;
@@ -41,30 +41,26 @@ const expandir = (texto) => {
 const testes = [];
 for (const arq of fs.readdirSync(pasta).filter((f) => f.endsWith('.cy.js')).sort()) {
   const src = fs.readFileSync(path.join(pasta, arq), 'utf8');
-  for (const m of src.matchAll(/it\('((CTV\d+) — (.*?))',\s*\(\)/g)) {
-    const [, , id, titulo] = m;
+  for (const m of src.matchAll(/it\('(\d+)\. (.*?)',\s*\(\)/g)) {
+    const [, id, titulo] = m;
     const final = titulo.match(/\(([^()]*)\)\s*$/);
-    let reqs = expandir(final ? final[1] : '');
-    const completo = arq.startsWith('06-'); // o caso de uso completo cita os requisitos no cabeçalho do arquivo
-    if (completo) {
-      const cab = src.match(/Requisitos exercitados:([\s\S]*?)\n\/\/ =/);
-      if (cab) reqs = expandir(cab[1].replace(/\n\/\/\s*/g, ' '));
-    }
+    const reqs = expandir(final ? final[1] : '');
+    const completo = arq.startsWith('06-'); // o caso de uso completo percorre os requisitos em sequência
     testes.push({ id, titulo: titulo.replace(/\s*\([^()]*\)\s*$/, ''), arq, reqs: [...reqs].sort(), completo });
   }
 }
 
 const cobertura = {};
-// o caso de uso completo passa por quase todos os requisitos; ele aparece à parte, para a tabela mostrar o teste DEDICADO de cada um
+// as etapas do caso de uso completo (arquivo 06) passam por quase todos os requisitos; aparecem à parte, para a tabela mostrar o teste DEDICADO de cada um
 for (const t of testes.filter((x) => !x.completo)) for (const r of t.reqs) (cobertura[r] ||= []).push(t.id);
-const fluxoCompleto = testes.find((t) => t.completo);
+const fluxo = testes.filter((t) => t.completo);
 
 const L = [];
 L.push('# Matriz de rastreabilidade — módulo de Vendas (CDU02)', '');
 L.push('> **Gerada automaticamente** (`npm run docs:matriz`) a partir dos títulos dos testes em `cypress/e2e/vendas/*.cy.js`; cada título termina com os requisitos que ele cobre. Se mudar um teste, rode o comando de novo.', '');
-L.push(`Base: \`DRS_LES_2_2026\` v0.6 · **${testes.length} testes automatizados Cypress** (um teste dedicado por requisito do escopo de Vendas + o caso de uso completo) + testes de integração JUnit da API (\`backend/src/test\`).`, '');
+L.push(`Base: \`DRS_LES_2_2026\` v0.6 · **${testes.length} testes automatizados Cypress** (${testes.length - fluxo.length} dedicados, um por requisito do escopo de Vendas + ${fluxo.length} etapas do caso de uso completo) + testes de integração JUnit da API (\`backend/src/test\`).`, '');
 L.push('## 1. Requisito → testes', '');
-L.push('| Requisito | Descrição (DRS) | Teste dedicado | Situação |', '|---|---|---|---|');
+L.push('| Requisito | Descrição (DRS) | Teste dedicado (nº) | Situação |', '|---|---|---|---|');
 const semTeste = [];
 for (const [r, d] of Object.entries(DRS)) {
   const ts = cobertura[r] || [];
@@ -73,10 +69,14 @@ for (const [r, d] of Object.entries(DRS)) {
   else if (!ts.length) semTeste.push(r);
   L.push(`| ${r} | ${d} | ${ts.length ? ts.join(', ') : '—'} | ${sit} |`);
 }
-if (fluxoCompleto) L.push('', `> **${fluxoCompleto.id}** (\`${fluxoCompleto.arq}\`) percorre o caso de uso inteiro pela interface — do carrinho à troca e ao uso do cupom — e por isso exercita, em sequência, os requisitos acima; é o teste para rodar ao vivo na apresentação.`);
+if (fluxo.length) {
+  const reqsFluxo = [...new Set(fluxo.flatMap((t) => t.reqs))].sort();
+  const fora = Object.keys(DRS).filter((r) => r.match(/^R[FN]\d/) && !reqsFluxo.includes(r));
+  L.push('', `> A coluna "Teste dedicado" mostra o teste que existe só para aquele requisito. O arquivo \`${fluxo[0].arq}\` (**testes ${fluxo[0].id} a ${fluxo[fluxo.length - 1].id}**, sequenciais) percorre o caso de uso inteiro pela interface — do carrinho à troca e ao uso do cupom — e exercita ${reqsFluxo.length} requisitos (${reqsFluxo.join(', ')}); é o arquivo para rodar ao vivo na apresentação. Como segue só o caminho feliz, **não substitui** os dedicados: ficam de fora dele ${fora.join(', ')} (e o ramo REPROVADA da RN0038).`);
+}
 L.push('', '## 2. Caso de teste → requisitos', '');
-L.push('| ID | Título | Requisitos | Arquivo |', '|---|---|---|---|');
-for (const t of testes) L.push(`| ${t.id} | ${t.titulo} | ${t.completo ? 'todos (fluxo completo)' : t.reqs.join(', ')} | \`${t.arq}\` |`);
+L.push('| Nº | Título | Requisitos | Arquivo |', '|---|---|---|---|');
+for (const t of testes) L.push(`| ${t.id} | ${t.titulo} | ${t.reqs.join(', ')} | \`${t.arq}\` |`);
 L.push('', '## 3. Lacunas conhecidas', '');
 L.push('- **RNF0011** (consulta em até 1 s): não há teste de desempenho para Vendas (no módulo de Clientes existe o teste 18, que mede a consulta do front).');
 L.push('- **RNF0012** (log de escrita): implementado por aspecto e visível no terminal do backend (`OPERACOES_DE_ESCRITA`); não há asserção automatizada.');

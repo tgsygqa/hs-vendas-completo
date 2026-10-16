@@ -13,7 +13,7 @@ describe('Vendas — Validação de pagamento, despacho e entrega (RF0039, RF004
     cy.resetarBase();
   });
 
-  it('CTV012 — o pagamento validado aprova o pedido (APROVADA); recusado pela operadora o reprova (REPROVADA) (RN0038)', () => {
+  it('12. deve aprovar o pedido (APROVADA) quando o pagamento é validado e reprová-lo (REPROVADA) quando a operadora o recusa (RN0038)', () => {
     cy.criarCartaoViaApi(1, { numero: '4111111111110000', bandeira: 'VISA' }).then((cartaoRecusado) => {
       cy.criarPedidoViaApi().then((aprovado) => {
         cy.criarPedidoViaApi({ cartaoId: cartaoRecusado.id }).then((recusado) => {
@@ -34,7 +34,7 @@ describe('Vendas — Validação de pagamento, despacho e entrega (RF0039, RF004
     });
   });
 
-  it('CTV013 — a baixa em estoque só acontece quando o pagamento é aprovado (RF0053)', () => {
+  it('13. deve dar baixa em estoque somente quando o pagamento é aprovado (RF0053)', () => {
     cy.criarPedidoViaApi({ produtoId: PRODUTO.HEADSET, quantidade: 2 }).then((pedido) => {
       abrirAdmin();
       abrirAbaEstoque();
@@ -49,7 +49,7 @@ describe('Vendas — Validação de pagamento, despacho e entrega (RF0039, RF004
     });
   });
 
-  it('CTV014 — o administrador despacha um pedido aprovado e ele passa a EM TRANSPORTE (RF0039, RN0039)', () => {
+  it('14. deve despachar o pedido aprovado, passando-o a EM TRANSPORTE (RF0039, RN0039)', () => {
     cy.criarPedidoViaApi().then((pedido) => {
       cy.avancarPedidoViaApi(pedido.id, 'APROVADA');
       abrirAdmin();
@@ -62,7 +62,7 @@ describe('Vendas — Validação de pagamento, despacho e entrega (RF0039, RF004
     });
   });
 
-  it('CTV015 — o administrador confirma a entrega e o pedido passa a ENTREGUE (RF0040, RN0040)', () => {
+  it('15. deve confirmar a entrega, passando o pedido a ENTREGUE (RF0040, RN0040)', () => {
     abrirAdmin();
 
     linhaPedido(2).should('have.attr', 'data-status', 'EM_TRANSPORTE'); // pedido da massa de dados

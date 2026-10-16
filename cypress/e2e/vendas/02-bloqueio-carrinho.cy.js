@@ -13,7 +13,7 @@ describe('Vendas — Bloqueio e expiração dos itens do carrinho (RN0044, RN004
     cy.resetarBase();
   });
 
-  it('CTV004 — itens no carrinho ficam bloqueados por um prazo, indisponíveis para outros clientes, com aviso 5 minutos antes de expirar (RN0044)', () => {
+  it('4. deve bloquear os itens do carrinho por um prazo, indisponíveis para outros clientes, com aviso 5 minutos antes de expirar (RN0044)', () => {
     cy.criarClienteViaApi().then((maria) => {
       abrirLoja();
       adicionarNaLoja(PRODUTO.RTX, 12); // João bloqueia as 12 placas
@@ -33,7 +33,7 @@ describe('Vendas — Bloqueio e expiração dos itens do carrinho (RN0044, RN004
     });
   });
 
-  it('CTV005 — ao expirar o bloqueio os itens saem do carrinho e são apresentados como retirados; comprar fica desabilitado até adicioná-los de novo (RN0045, RNF0042)', () => {
+  it('5. deve retirar os itens do carrinho ao expirar o bloqueio, apresentá-los como retirados e desabilitar a compra até adicioná-los de novo (RN0045, RNF0042)', () => {
     abrirLoja();
     adicionarNaLoja(PRODUTO.HEADSET, 2);
     cy.definirBloqueio(1, -5); // prazo já vencido

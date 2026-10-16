@@ -19,7 +19,7 @@ describe('Vendas — Regras de pagamento validadas pela API (RN0033 a RN0037)', 
     cy.resetarBase();
   });
 
-  it('CTV023 — não aceita dois cupons promocionais na mesma compra (RN0033)', () => {
+  it('32. não deve aceitar dois cupons promocionais na mesma compra (RN0033)', () => {
     cy.adicionarAoCarrinhoViaApi(1, PRODUTO.HEADSET, 1);
 
     finalizar({ cartoes: [{ cartaoId: 1, valor: 294.8 }], cupomIds: [1, 2] }).then((r) => {
@@ -28,7 +28,7 @@ describe('Vendas — Regras de pagamento validadas pela API (RN0033 a RN0037)', 
     });
   });
 
-  it('CTV024 — com mais de um cartão e sem cupom, cada cartão precisa pagar ao menos R$ 10,00 (RN0034)', () => {
+  it('33. deve exigir ao menos R$ 10,00 em cada cartão quando há mais de um cartão e nenhum cupom (RN0034)', () => {
     cy.criarCartaoViaApi(1).then((cartao2) => {
       cy.adicionarAoCarrinhoViaApi(1, PRODUTO.HEADSET, 1);
 
@@ -43,7 +43,7 @@ describe('Vendas — Regras de pagamento validadas pela API (RN0033 a RN0037)', 
     });
   });
 
-  it('CTV025 — combinado com cupom, o cartão pode pagar menos de R$ 10,00 (RN0035)', () => {
+  it('34. deve permitir que o cartão pague menos de R$ 10,00 quando combinado com cupom (RN0035)', () => {
     cy.criarCartaoViaApi(1).then((cartao2) => {
       cy.adicionarAoCarrinhoViaApi(1, PRODUTO.HEADSET, 1);
 
@@ -54,7 +54,7 @@ describe('Vendas — Regras de pagamento validadas pela API (RN0033 a RN0037)', 
     });
   });
 
-  it('CTV026 — não permite cupons desnecessários e, quando o cupom supera a compra, gera um cupom de troco (RN0036)', () => {
+  it('35. não deve permitir cupons desnecessários e deve gerar um cupom de troco quando o cupom supera a compra (RN0036)', () => {
     cy.adicionarAoCarrinhoViaApi(1, PRODUTO.HEADSET, 1);
 
     // R$ 500 já cobrem os R$ 374,80; o de R$ 20 seria desnecessário
@@ -72,7 +72,7 @@ describe('Vendas — Regras de pagamento validadas pela API (RN0033 a RN0037)', 
     });
   });
 
-  it('CTV027 — a forma de pagamento é validada: um cupom já utilizado não pode ser usado de novo (RN0037)', () => {
+  it('36. deve validar a forma de pagamento, recusando um cupom já utilizado (RN0037)', () => {
     cy.adicionarAoCarrinhoViaApi(1, PRODUTO.HEADSET, 1);
     finalizar({ cartoes: [{ cartaoId: 1, valor: 324.8 }], cupomIds: [1] }).its('status').should('eq', 201);
 

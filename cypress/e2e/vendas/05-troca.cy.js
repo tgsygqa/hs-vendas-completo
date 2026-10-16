@@ -29,7 +29,7 @@ describe('Vendas — Processo de troca (RF0041 a RF0045, RF0054, RN0041 a RN0043
     cy.resetarBase();
   });
 
-  it('CTV016 — o cliente solicita a troca de um item e o pedido passa a EM TROCA (RF0041, RN0041)', () => {
+  it('16. deve solicitar a troca de um item, passando o pedido a EM TROCA (RF0041, RN0041)', () => {
     abrirPedidos();
 
     solicitarTrocaPelaTela(1, { motivo: 'O SSD apresentou falha de leitura' });
@@ -40,7 +40,7 @@ describe('Vendas — Processo de troca (RF0041 a RF0045, RF0054, RN0041 a RN0043
     cardPedido(1).find('[data-cy=troca-resumo]').should('contain.text', 'O SSD apresentou falha de leitura');
   });
 
-  it('CTV017 — só itens de pedidos ENTREGUES podem receber solicitação de troca (RN0043)', () => {
+  it('17. não deve permitir solicitar troca de itens de pedidos que não estejam ENTREGUES (RN0043)', () => {
     abrirPedidos();
 
     cardPedido(1).should('have.attr', 'data-status', 'ENTREGUE');
@@ -57,7 +57,7 @@ describe('Vendas — Processo de troca (RF0041 a RF0045, RF0054, RN0041 a RN0043
     });
   });
 
-  it('CTV018 — o administrador visualiza as solicitações de troca com cliente, itens e motivo (RF0043)', () => {
+  it('18. deve visualizar as solicitações de troca com cliente, itens e motivo (RF0043)', () => {
     cy.solicitarTrocaViaApi(1, [{ itemPedidoId: 1, quantidade: 1 }], 'SSD não reconhecido pela placa-mãe');
     abrirAdmin();
 
@@ -69,7 +69,7 @@ describe('Vendas — Processo de troca (RF0041 a RF0045, RF0054, RN0041 a RN0043
     cy.get('[data-cy=trocas-pendentes]').should('have.text', '1');
   });
 
-  it('CTV019 — o administrador autoriza a troca (TROCA AUTORIZADA) e o cliente recebe uma notificação (RF0042, RN0046)', () => {
+  it('19. deve autorizar a troca (TROCA AUTORIZADA) e notificar o cliente (RF0042, RN0046)', () => {
     cy.solicitarTrocaViaApi(1, [{ itemPedidoId: 1, quantidade: 1 }]).then((troca) => {
       abrirAdmin();
       abrirAbaTrocas();
@@ -86,7 +86,7 @@ describe('Vendas — Processo de troca (RF0041 a RF0045, RF0054, RN0041 a RN0043
     });
   });
 
-  it('CTV020 — o administrador confirma o recebimento com retorno ao estoque: pedido TROCADO e item volta ao estoque (RF0044, RF0054, RN0042)', () => {
+  it('20. deve confirmar o recebimento com retorno ao estoque: pedido TROCADO e item de volta ao estoque (RF0044, RF0054, RN0042)', () => {
     cy.solicitarTrocaViaApi(1, [{ itemPedidoId: 1, quantidade: 1 }]).then((troca) => {
       cy.autorizarTrocaViaApi(troca.id);
       abrirAdmin();
@@ -103,7 +103,7 @@ describe('Vendas — Processo de troca (RF0041 a RF0045, RF0054, RN0041 a RN0043
     });
   });
 
-  it('CTV021 — o recebimento gera um cupom de troca, no valor dos itens trocados, disponível ao cliente (RF0045)', () => {
+  it('21. deve gerar um cupom de troca no valor dos itens trocados, disponível ao cliente (RF0045)', () => {
     cy.solicitarTrocaViaApi(1, [{ itemPedidoId: 1, quantidade: 1 }]).then((troca) => {
       cy.autorizarTrocaViaApi(troca.id);
       cy.confirmarRecebimentoTrocaViaApi(troca.id, true);

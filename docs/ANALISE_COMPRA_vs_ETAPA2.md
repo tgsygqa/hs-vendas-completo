@@ -29,7 +29,7 @@
 | 3 — Bloqueio/expiração do carrinho (RN0044, RN0045, RNF0042) | só o campo `bloqueadoAte`, sem uso | ✅ bloqueio com prazo, contador, aviso aos 5 min, job de expiração, lista de itens expirados, readicionar/dispensar |
 | 4 — Endpoints REST de despacho, entrega, troca | métodos de serviço sem controller | ✅ `PedidoController` ampliado, `TrocaController`, `NotificacaoController` |
 | 5/6 — Telas do administrador e do cliente | não existiam | ✅ `admin.html`, `pedidos.html` (+ ajustes em `vendas.html`) |
-| 7 — Cypress do fluxo completo | não existia | ✅ 27 testes em 7 arquivos (um por requisito do DRS) + `CTV022` (caso de uso completo) |
+| 7 — Cypress do fluxo completo | não existia | ✅ 36 testes em 7 arquivos: 26 dedicados (um por requisito do DRS) + 10 etapas do caso de uso completo (testes 22 a 31) |
 | RN0032 (alerta e ajuste automático) | só lançava erro | ✅ ajusta a quantidade / remove o item e mostra o alerta |
 | RN0046 (notificação de troca autorizada) | não existia | ✅ |
 | Validação de pagamento "controlável" (E3 — REPROVADA) | gateway sempre aprovava | ✅ cartão final `0000` é recusado |

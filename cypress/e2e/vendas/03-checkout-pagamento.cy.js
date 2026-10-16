@@ -21,7 +21,7 @@ describe('Vendas — Finalizar compra (RF0033 a RF0038, RN0032)', () => {
     abrirLoja();
   });
 
-  it('CTV006 — deve realizar a compra a partir do carrinho e finalizá-la com o pedido EM PROCESSAMENTO (RF0033, RF0038)', () => {
+  it('6. deve realizar a compra a partir do carrinho e finalizá-la com o pedido EM PROCESSAMENTO (RF0033, RF0038)', () => {
     adicionarNaLoja(PRODUTO.HEADSET, 1);
     irParaCheckout();
     escolherPrimeiroEndereco();
@@ -35,7 +35,7 @@ describe('Vendas — Finalizar compra (RF0033 a RF0038, RN0032)', () => {
     cy.get('[data-cy=pedido-total]').should('have.text', brl(TOTAL_1_HEADSET));
   });
 
-  it('CTV007 — o frete é calculado e somado ao total da compra (RF0034)', () => {
+  it('7. deve calcular o frete e somá-lo ao total da compra (RF0034)', () => {
     adicionarNaLoja(PRODUTO.HEADSET, 1);
     irParaCheckout();
 
@@ -43,7 +43,7 @@ describe('Vendas — Finalizar compra (RF0033 a RF0038, RN0032)', () => {
     cy.get('[data-cy=total-compra]').should('have.text', brl(TOTAL_1_HEADSET));
   });
 
-  it('CTV008 — deve cadastrar um novo endereço de entrega durante a compra e incorporá-lo ao perfil do cliente (RF0035)', () => {
+  it('8. deve cadastrar um novo endereço de entrega durante a compra e incorporá-lo ao perfil do cliente (RF0035)', () => {
     adicionarNaLoja(PRODUTO.HEADSET, 1);
     irParaCheckout();
 
@@ -65,7 +65,7 @@ describe('Vendas — Finalizar compra (RF0033 a RF0038, RN0032)', () => {
     cy.apiRequest('GET', '/clientes/1').its('body.enderecos').should('have.length', 2);
   });
 
-  it('CTV009 — deve cadastrar um novo cartão de crédito durante a compra e incorporá-lo ao perfil do cliente (RF0036)', () => {
+  it('9. deve cadastrar um novo cartão de crédito durante a compra e incorporá-lo ao perfil do cliente (RF0036)', () => {
     adicionarNaLoja(PRODUTO.HEADSET, 1);
     irParaCheckout();
 
@@ -81,7 +81,7 @@ describe('Vendas — Finalizar compra (RF0033 a RF0038, RN0032)', () => {
     cy.apiRequest('GET', '/clientes/1').its('body.cartoes').should('have.length', 2);
   });
 
-  it('CTV010 — deve pagar com um cupom promocional e completar com cartão de crédito (RF0037)', () => {
+  it('10. deve pagar com um cupom promocional e completar com cartão de crédito (RF0037)', () => {
     adicionarNaLoja(PRODUTO.HEADSET, 1);
     irParaCheckout();
     escolherPrimeiroEndereco();
@@ -98,7 +98,7 @@ describe('Vendas — Finalizar compra (RF0033 a RF0038, RN0032)', () => {
     });
   });
 
-  it('CTV011 — se o estoque mudar antes da finalização, ajusta a quantidade ou remove o item indisponível, com alerta (RN0032)', () => {
+  it('11. deve ajustar a quantidade ou remover o item indisponível, com alerta, se o estoque mudar antes da finalização (RN0032)', () => {
     adicionarNaLoja(PRODUTO.HEADSET, 5);
     irParaCheckout();
     escolherPrimeiroEndereco();
