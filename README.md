@@ -27,11 +27,13 @@ Abra <http://localhost:5600>. Telas: **Loja** (`vendas.html`), **Meus pedidos** 
 
 | Comando | O que faz |
 |---|---|
-| `npm run test:vendas` | Sobe backend + frontend sozinho e roda os **81 testes Cypress de Vendas** (headless) |
+| `npm run test:vendas` | Sobe backend + frontend sozinho e roda os **27 testes Cypress de Vendas** (headless) — um por requisito do DRS |
 | `npm run test:cliente` | Sobe o frontend e roda os **64 testes Cypress de Clientes** (não precisa do backend) |
 | `npm run test:e2e` | Tudo: Clientes + Vendas |
+| `npm run test:lista` | Lista os arquivos de teste e quantos testes cada um tem |
+| `npm run test:vendas -- troca` | **Só um arquivo**: o que vem depois do `--` filtra pelo nome (`troca`, `05`, `caso-de-uso`…); aceita vários: `-- 05 06` |
 | `npm run test:vendas:open` | Sobe backend + frontend e abre a **interface do Cypress** (bom para apresentar ao vivo) |
-| `npm run test:vendas:ao-vivo` | Roda o caso de uso completo (CTV100) num **Edge visível** (Chrome: `-- --browser chrome`), sem a janela inicial do Cypress — plano B se ela abrir em branco |
+| `npm run test:vendas:ao-vivo` | Roda o caso de uso completo (CTV022) num **Edge visível** (Chrome: `-- --browser chrome`), sem a janela inicial do Cypress — plano B se ela abrir em branco |
 | `npm run test:backend` | **22 testes de integração JUnit** da API (RN0031–RN0046, fluxo completo) |
 | `npm run cy:open` / `cy:run` | Cypress direto (backend e frontend já precisam estar no ar) |
 
@@ -66,7 +68,7 @@ hardware-store/
 │       └── common/                exceções, log de escrita (RNF0012) e suporte a testes
 ├── cypress/
 │   ├── e2e/cliente/               suíte de Clientes (64 testes)
-│   ├── e2e/vendas/                suíte de Vendas (81 testes, 7 arquivos)
+│   ├── e2e/vendas/                suíte de Vendas (27 testes, 7 arquivos)
 │   └── support/                   comandos e helpers (reset, montagem de cenário via API)
 ├── scripts/mvn.js                 roda o Maven Wrapper em qualquer sistema operacional
 ├── docs/                          guias e matriz de rastreabilidade

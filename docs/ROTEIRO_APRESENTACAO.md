@@ -23,7 +23,7 @@ Tudo aqui foi percorrido de ponta a ponta no navegador antes de virar roteiro. O
 
 ## 1. Caminho principal — do carrinho à troca (≈ 6 min)
 
-É exatamente o teste **CTV100** (`06-caso-de-uso-completo.cy.js`).
+É exatamente o teste **CTV022** (`06-caso-de-uso-completo.cy.js`).
 
 | # | Onde | O que fazer | O que mostrar / dizer | Req. |
 |---|---|---|---|---|
@@ -47,7 +47,7 @@ npm run test:vendas:open
 ```
 Na janela do Cypress: **E2E Testing → navegador → Start E2E Testing → `06-caso-de-uso-completo.cy.js`**. O mesmo caminho da seção 1 roda sozinho em ~20 s, com cada passo anotado (`cy.log`).
 > **Plano B** (se a janela do Cypress abrir em branco): `npm run test:vendas:ao-vivo` roda o mesmo caso de uso num Edge visível, sem a janela inicial do Cypress. Teste antes da apresentação, na máquina que vai usar.
-Para o panorama geral: `npm run test:vendas` (headless) mostra **81 testes** passando; `docs/MATRIZ_RASTREABILIDADE.md` liga cada RF/RN aos testes.
+Para o panorama geral: `npm run test:vendas` (headless) mostra **27 testes** passando; `docs/MATRIZ_RASTREABILIDADE.md` liga cada RF/RN aos testes.
 
 ---
 

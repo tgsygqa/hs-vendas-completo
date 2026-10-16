@@ -7,7 +7,7 @@ Este guia leva você de **"notebook sem nada"** até **"testes Cypress rodando"*
 > git clone https://github.com/tgsygqa/hs-vendas-completo.git
 > cd hs-vendas-completo
 > npm install
-> npm run test:vendas          # roda os 81 testes Cypress de Vendas sozinho
+> npm run test:vendas          # roda os 27 testes Cypress de Vendas sozinho
 > npm run test:vendas:open     # ou abre a interface do Cypress (para apresentar)
 > ```
 
@@ -151,7 +151,7 @@ O roteiro completo, clique a clique, está em [`ROTEIRO_APRESENTACAO.md`](ROTEIR
 ### 6.1 Tudo sozinho, sem janela (headless)
 
 ```
-npm run test:vendas          # 81 testes do caso de uso de Vendas (sobe backend e frontend sozinho)
+npm run test:vendas          # 27 testes do caso de uso de Vendas (um por requisito) (sobe backend e frontend sozinho)
 npm run test:cliente         # 64 testes do módulo de Clientes (só o frontend)
 npm run test:e2e             # os dois
 ```
@@ -163,14 +163,14 @@ Resultado esperado no fim (algo como):
 ```
   (Run Finished)
        Spec                                  Tests  Passing  Failing …
-  ✔  01-carrinho.cy.js                          11       11        0
-  ✔  02-bloqueio-carrinho.cy.js                 11       11        0
-  ✔  03-checkout-pagamento.cy.js                18       18        0
-  ✔  04-aprovacao-despacho-entrega.cy.js        10       10        0
-  ✔  05-troca.cy.js                             17       17        0
+  ✔  01-carrinho.cy.js                           3        3        0
+  ✔  02-bloqueio-carrinho.cy.js                  2        2        0
+  ✔  03-checkout-pagamento.cy.js                 6        6        0
+  ✔  04-aprovacao-despacho-entrega.cy.js         4        4        0
+  ✔  05-troca.cy.js                              6        6        0
   ✔  06-caso-de-uso-completo.cy.js               1        1        0
-  ✔  07-regras-de-negocio-api.cy.js             13       13        0
-  ✔  All specs passed!                          81       81        0
+  ✔  07-regras-de-negocio-api.cy.js              5        5        0
+  ✔  All specs passed!                          27       27        0
 ```
 
 Se algum teste falhar, o Cypress salva uma imagem em `cypress/screenshots/`.
@@ -189,7 +189,23 @@ Sobe backend + frontend e abre o Cypress. Na janela: **E2E Testing → escolha o
 npm run test:vendas:ao-vivo
 ```
 
-Ele sobe tudo e roda o caso de uso completo (CTV100) num **Edge visível**, com o painel do Cypress (lista de passos à esquerda, a loja à direita), e depois desliga os servidores. Para usar o Chrome: `npm run test:vendas:ao-vivo -- --browser chrome`. O mesmo vale para a suíte inteira: `npm run test:vendas -- --headed --browser edge`.
+Ele sobe tudo e roda o caso de uso completo (CTV022) num **Edge visível**, com o painel do Cypress (lista de passos à esquerda, a loja à direita), e depois desliga os servidores. Para usar o Chrome: `npm run test:vendas:ao-vivo -- --browser chrome`. O mesmo vale para a suíte inteira: `npm run test:vendas -- --headed --browser edge`.
+
+### Escolher quais testes rodar
+
+Os testes já são separados por área, em pastas diferentes, e cada arquivo é um assunto:
+
+| Quero rodar… | Comando |
+|---|---|
+| Só **Clientes** (64 testes, não precisa do backend) | `npm run test:cliente` |
+| Só **Vendas** (27 testes, 7 arquivos) | `npm run test:vendas` |
+| **Tudo** (Clientes + Vendas) | `npm run test:e2e` |
+| **Um arquivo** de Vendas | `npm run test:vendas -- troca` (filtra pelo nome do arquivo: `troca`, `bloqueio`, `checkout`, `05`…) |
+| **Vários arquivos** | `npm run test:vendas -- 05 06` |
+| Só o **caso de uso completo** (CTV022) | `npm run test:vendas -- caso-de-uso` |
+| Ver a lista de arquivos | `npm run test:lista` |
+
+Dá para combinar com as opções do Cypress depois dos nomes, por exemplo `npm run test:vendas -- troca --browser edge`. Para escolher **um teste só** dentro de um arquivo, use a interface (`npm run test:vendas:open`, ou `npm run cy:open` com os servidores já no ar) e clique no arquivo; ou coloque temporariamente `it.only(` no teste desejado (e tire depois).
 
 ### 6.3 Passo a passo **manual** dos testes (sem os atalhos)
 
@@ -229,7 +245,7 @@ Cada teste de Vendas começa chamando `POST /api/test-support/reset`, que apaga 
 | `npm install` trava no Cypress / erro de download | Firewall ou proxy bloqueando `download.cypress.io`. Libere o domínio ou, atrás de proxy, defina `HTTPS_PROXY` antes; depois `npx cypress install`. Rede da faculdade costuma bloquear — teste com o celular como roteador. |
 | Cypress diz `ECONNREFUSED 127.0.0.1:8080` | O backend não está no ar. Com `test:vendas`/`test:vendas:open` ele sobe sozinho; com `cy:open`/`cy:run` suba antes `npm run start:back` e `npm run start:front`. |
 | Tela da loja mostra "Não foi possível carregar os dados da API" | Backend fora do ar ou ainda subindo (leva ~10 s). |
-| Os testes CTV023/CTV024 (aviso de expiração) falham | O backend foi iniciado com `start:back:demo` (prazos curtos). Para os testes use o padrão `npm run start:back` — ou `npm run test:vendas`, que já sobe o certo. |
+| O teste CTV004 (bloqueio e aviso de expiração) falha | O backend foi iniciado com `start:back:demo` (prazos curtos). Para os testes use o padrão `npm run start:back` — ou `npm run test:vendas`, que já sobe o certo. |
 | Teste de Vendas falha logo no `beforeEach` com erro 404 no `reset` | O backend foi iniciado no perfil `postgres` (que desliga o endpoint de teste). Use o padrão `npm run start:back`. |
 | Em macOS/Linux: `mvnw: Permission denied` | O `npm run …` já usa `sh mvnw`. Se rodar a mão: `sh ./mvnw spring-boot:run` ou `chmod +x backend/mvnw`. |
 | Quero PostgreSQL em vez do H2 | `npm run start:back:postgres` (precisa de um Postgres em `localhost:5432`, banco/usuário/senha `hardwarestore`). O Codespace já instala. |

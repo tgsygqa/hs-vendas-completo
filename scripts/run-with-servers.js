@@ -4,17 +4,23 @@
 // fim (passando, falhando ou com Ctrl+C), DERRUBA tudo — inclusive o Java do
 // Spring Boot, que é "neto" do processo que iniciamos.
 //
-//   node scripts/run-with-servers.js vendas        -> 81 testes de Vendas (headless)
+//   node scripts/run-with-servers.js vendas        -> 27 testes de Vendas (headless)
 //   node scripts/run-with-servers.js cliente       -> 64 testes de Clientes (só frontend)
 //   node scripts/run-with-servers.js tudo          -> Clientes + Vendas
 //   node scripts/run-with-servers.js vendas-open   -> abre a interface do Cypress
-//   node scripts/run-with-servers.js ao-vivo       -> roda o caso de uso completo (CTV100) com o navegador
+//   node scripts/run-with-servers.js ao-vivo       -> roda o caso de uso completo (CTV022) com o navegador
 //                                                     visível (Edge no Windows, Chrome nos demais), sem a
 //                                                     janela inicial do Cypress — útil se ela abrir em branco
 //
-// Argumentos extras vão direto para o Cypress, por exemplo:
-//   node scripts/run-with-servers.js vendas --browser edge
-//   node scripts/run-with-servers.js ao-vivo --browser chrome
+// Escolher o que rodar (palavras logo depois do modo filtram os arquivos de teste pelo nome):
+//   node scripts/run-with-servers.js vendas troca            -> só 05-troca.cy.js
+//   node scripts/run-with-servers.js vendas 05 06            -> 05-troca e 06-caso-de-uso-completo
+//   node scripts/run-with-servers.js tudo cliente            -> só cliente-crud.cy.js
+//   node scripts/run-with-servers.js listar                  -> lista os arquivos de teste
+//
+// Os demais argumentos vão direto para o Cypress, por exemplo:
+//   node scripts/run-with-servers.js vendas troca --browser edge
+//   node scripts/run-with-servers.js vendas --spec cypress/e2e/vendas/05-troca.cy.js
 //
 // Por que não o start-server-and-test? Ele encerra os servidores usando o
 // "ps-tree", que no Windows chama o wmic.exe — removido do Windows 11 recente.
@@ -43,16 +49,38 @@ const URL_FRONT = `http://127.0.0.1:${PORTA_FRONT}/index.html`;
 // não encher o terminal e esconder o resultado dos testes. Nos modos de apresentação ela continua visível.
 const LOG_BACK = path.join(raiz, 'logs', 'backend-testes.log');
 
+const PASTA_CLIENTE = 'cypress/e2e/cliente';
+const PASTA_VENDAS = 'cypress/e2e/vendas';
+
 const MODOS = {
-  vendas: { back: true, front: true, logEmArquivo: true, cypress: ['run', '--spec', 'cypress/e2e/vendas/**/*.cy.js'] },
-  cliente: { back: false, front: true, cypress: ['run', '--spec', 'cypress/e2e/cliente/**/*.cy.js'] },
-  tudo: { back: true, front: true, logEmArquivo: true, cypress: ['run'] },
+  vendas: { back: true, front: true, logEmArquivo: true, pastas: [PASTA_VENDAS], cypress: ['run', '--spec', `${PASTA_VENDAS}/**/*.cy.js`] },
+  cliente: { back: false, front: true, pastas: [PASTA_CLIENTE], cypress: ['run', '--spec', `${PASTA_CLIENTE}/**/*.cy.js`] },
+  tudo: { back: true, front: true, logEmArquivo: true, pastas: [PASTA_CLIENTE, PASTA_VENDAS], cypress: ['run'] },
   'vendas-open': { back: true, front: true, cypress: ['open'] },
   'ao-vivo': {
-    back: true, front: true, navegador: true,
-    cypress: ['run', '--headed', '--spec', 'cypress/e2e/vendas/06-caso-de-uso-completo.cy.js'],
+    back: true, front: true, navegador: true, pastas: [PASTA_VENDAS],
+    cypress: ['run', '--headed', '--spec', `${PASTA_VENDAS}/06-caso-de-uso-completo.cy.js`],
   },
 };
+
+// Arquivos de teste (.cy.js) de uma lista de pastas, com a quantidade de testes de cada um.
+function listarSpecs(pastas) {
+  return pastas.flatMap((pasta) => fs.readdirSync(path.join(raiz, pasta))
+    .filter((f) => f.endsWith('.cy.js')).sort()
+    .map((f) => {
+      const texto = fs.readFileSync(path.join(raiz, pasta, f), 'utf8');
+      return { caminho: `${pasta}/${f}`, arquivo: f, testes: (texto.match(/^\s*it\(/gm) || []).length };
+    }));
+}
+
+if (process.argv[2] === 'listar') {
+  for (const pasta of [PASTA_CLIENTE, PASTA_VENDAS]) {
+    console.log(`\n${pasta}/`);
+    for (const sp of listarSpecs([pasta])) console.log(`  ${sp.arquivo.padEnd(40)} ${String(sp.testes).padStart(3)} testes`);
+  }
+  console.log('\nExemplos:  npm run test:vendas -- troca     |     npm run test:cliente     |     npm run test:vendas -- 05 06');
+  process.exit(0);
+}
 
 const modo = MODOS[process.argv[2]];
 if (!modo) {
@@ -60,14 +88,50 @@ if (!modo) {
   process.exit(2);
 }
 
-// Argumentos extras (depois do modo) vão para o Cypress. No modo "ao-vivo", se você não escolher o
-// navegador, usa o Edge (já vem no Windows) ou o Chrome.
+// Argumentos depois do modo:
+//  - palavras no começo (sem "-") filtram os arquivos de teste pelo nome (ex.: "troca", "05");
+//  - o resto vai direto para o Cypress (ex.: --browser edge, --spec ...).
+// No modo "ao-vivo", se você não escolher o navegador, usa o Edge (já vem no Windows) ou o Chrome.
 const extras = process.argv.slice(3);
-const escolheuNavegador = extras.some((a) => a === '--browser' || a === '-b' || a.startsWith('--browser='));
+const nTermos = extras.findIndex((a) => a.startsWith('-'));
+const termos = nTermos === -1 ? extras : extras.slice(0, nTermos);
+const restoArgs = nTermos === -1 ? [] : extras.slice(nTermos);
+
+let baseCypress = [...modo.cypress];
+let precisaBack = modo.back;
+const tirarSpecPadrao = () => {
+  const i = baseCypress.indexOf('--spec');
+  if (i !== -1) baseCypress.splice(i, 2);
+};
+if (termos.length) {
+  if (!modo.pastas) {
+    console.error(`O modo "${process.argv[2]}" não aceita filtro de arquivos. Use um dos modos: vendas, cliente, tudo, ao-vivo.`);
+    process.exit(2);
+  }
+  const todos = listarSpecs(modo.pastas);
+  const escolhidos = new Set();
+  for (const termo of termos) {
+    const achados = todos.filter((sp) => sp.arquivo.toLowerCase().includes(termo.toLowerCase()));
+    if (!achados.length) {
+      console.error(`Nenhum arquivo de teste combina com "${termo}". Disponíveis neste modo:\n${todos.map((sp) => `  ${sp.arquivo} (${sp.testes} testes)`).join('\n')}`);
+      process.exit(2);
+    }
+    achados.forEach((sp) => escolhidos.add(sp.caminho));
+  }
+  tirarSpecPadrao();
+  baseCypress.push('--spec', [...escolhidos].join(','));
+  // Só os testes de Clientes (rodam sobre a tela com dados em memória) dispensam o backend.
+  if ([...escolhidos].every((c) => c.startsWith(PASTA_CLIENTE))) precisaBack = false;
+  console.log(`[testes] arquivos escolhidos: ${[...escolhidos].map((c) => path.basename(c)).join(', ')}`);
+} else if (restoArgs.includes('--spec') || restoArgs.includes('-s')) {
+  tirarSpecPadrao(); // quem passa --spec manualmente substitui o padrão do modo
+}
+
+const escolheuNavegador = restoArgs.some((a) => a === '--browser' || a === '-b' || a.startsWith('--browser='));
 const argsCypress = [
-  ...modo.cypress,
+  ...baseCypress,
   ...(modo.navegador && !escolheuNavegador ? ['--browser', isWin ? 'edge' : 'chrome'] : []),
-  ...extras,
+  ...restoArgs,
 ];
 
 const filhos = [];
@@ -154,7 +218,7 @@ async function esperar(rotulo, url, filho, limiteMs) {
 (async () => {
   // Evita testar contra um servidor "esquecido" (por exemplo, o backend em outro perfil) ou
   // contra outro programa que esteja na mesma porta (ex.: servidor de uma execução anterior ou outra ferramenta de desenvolvimento).
-  if (modo.back && await portaEmUso(8080)) {
+  if (precisaBack && await portaEmUso(8080)) {
     throw erroPortaOcupada(8080, 'backend', 'Encerre o backend que está rodando (Ctrl+C no terminal dele): os testes precisam subir o backend no perfil padrão.');
   }
   if (await portaEmUso(PORTA_FRONT)) {
@@ -162,7 +226,7 @@ async function esperar(rotulo, url, filho, limiteMs) {
   }
 
   let back = null;
-  if (modo.back) {
+  if (precisaBack) {
     let stdioBack = ['ignore', 'inherit', 'inherit'];
     if (modo.logEmArquivo) {
       fs.mkdirSync(path.dirname(LOG_BACK), { recursive: true });
