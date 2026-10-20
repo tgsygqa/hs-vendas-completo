@@ -52,6 +52,21 @@ public class TestSupportController {
         return ResponseEntity.ok(Map.of("status", "ok"));
     }
 
+    // Muda o atraso da validacao automatica do pagamento (segundos; negativo = desligada).
+    // Os testes desligam para controlar quando o pedido deixa EM_PROCESSAMENTO.
+    @PutMapping("/pagamentos/validacao-automatica")
+    public ResponseEntity<Map<String, String>> definirValidacaoAutomatica(@RequestParam int segundos) {
+        service.definirAtrasoValidacaoPagamento(segundos);
+        return ResponseEntity.ok(Map.of("status", "ok"));
+    }
+
+    // Executa agora o que o job automatico faria: valida o pagamento dos pedidos EM_PROCESSAMENTO
+    // (de todos, ou so do informado), sem esperar o atraso. Devolve quantos foram validados.
+    @PostMapping("/pagamentos/validar")
+    public ResponseEntity<Map<String, Integer>> validarPagamentos(@RequestParam(required = false) Long pedidoId) {
+        return ResponseEntity.ok(Map.of("validados", service.validarPagamentosAgora(pedidoId)));
+    }
+
     // Executa agora a varredura que libera os itens de carrinho vencidos.
     @PostMapping("/carrinhos/varrer")
     public ResponseEntity<Map<String, Integer>> varrer() {

@@ -1,7 +1,6 @@
 package com.hardwarestore.venda.controller;
 
 import com.hardwarestore.venda.dto.ConfirmarRecebimentoTrocaRequestDTO;
-import com.hardwarestore.venda.dto.RecusarTrocaRequestDTO;
 import com.hardwarestore.venda.dto.SolicitacaoTrocaResponseDTO;
 import com.hardwarestore.venda.service.PedidoService;
 import jakarta.validation.Valid;
@@ -39,15 +38,6 @@ public class TrocaController {
     @PatchMapping("/{id}/autorizar")
     public ResponseEntity<SolicitacaoTrocaResponseDTO> autorizar(@PathVariable Long id) {
         return ResponseEntity.ok(pedidoService.autorizarTroca(id));
-    }
-
-    // Caminho assumido (ver SolicitacaoTroca): recusar, com motivo; o pedido
-    // volta para ENTREGUE.
-    @PatchMapping("/{id}/recusar")
-    public ResponseEntity<SolicitacaoTrocaResponseDTO> recusar(
-            @PathVariable Long id, @RequestBody @Valid RecusarTrocaRequestDTO dto
-    ) {
-        return ResponseEntity.ok(pedidoService.recusarTroca(id, dto));
     }
 
     // RF0044/RF0054/RN0042/RF0045 - confirma o recebimento, informa se os

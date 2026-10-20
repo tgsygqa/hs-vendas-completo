@@ -9,6 +9,7 @@ import com.hardwarestore.venda.model.Produto;
 import com.hardwarestore.venda.repository.CarrinhoRepository;
 import com.hardwarestore.venda.repository.ProdutoRepository;
 import com.hardwarestore.venda.service.CarrinhoExpiracaoJob;
+import com.hardwarestore.venda.service.PagamentoValidacaoJob;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -40,6 +41,7 @@ public class TestSupportService {
     private final ProdutoRepository produtoRepository;
     private final CarrinhoRepository carrinhoRepository;
     private final CarrinhoExpiracaoJob expiracaoJob;
+    private final PagamentoValidacaoJob pagamentoJob;
 
     public TestSupportService(JdbcTemplate jdbc,
                               ProdutoSeeder produtoSeeder,
@@ -47,7 +49,8 @@ public class TestSupportService {
                               CupomSeeder cupomSeeder,
                               ProdutoRepository produtoRepository,
                               CarrinhoRepository carrinhoRepository,
-                              CarrinhoExpiracaoJob expiracaoJob) {
+                              CarrinhoExpiracaoJob expiracaoJob,
+                              PagamentoValidacaoJob pagamentoJob) {
         this.jdbc = jdbc;
         this.produtoSeeder = produtoSeeder;
         this.dataSeeder = dataSeeder;
@@ -55,6 +58,7 @@ public class TestSupportService {
         this.produtoRepository = produtoRepository;
         this.carrinhoRepository = carrinhoRepository;
         this.expiracaoJob = expiracaoJob;
+        this.pagamentoJob = pagamentoJob;
     }
 
     /** Apaga tudo, zera os contadores de id e roda os seeders na mesma ordem da subida (1, 2, 3). */
@@ -106,6 +110,16 @@ public class TestSupportService {
         LocalDateTime ate = LocalDateTime.now().plusSeconds(segundos);
         carrinho.getItens().forEach(i -> i.setBloqueadoAte(ate));
         carrinhoRepository.save(carrinho);
+    }
+
+    /** Liga/desliga (negativo) a validacao automatica do pagamento e ajusta o atraso, em segundos. */
+    public void definirAtrasoValidacaoPagamento(int segundos) {
+        pagamentoJob.definirAtrasoSegundos(segundos);
+    }
+
+    /** Valida agora o pagamento dos pedidos EM_PROCESSAMENTO, como o job faria depois do atraso. */
+    public int validarPagamentosAgora(Long pedidoId) {
+        return pagamentoJob.validarAgora(pedidoId);
     }
 
     /** Roda o job de expiracao agora, em vez de esperar o proximo ciclo agendado. */

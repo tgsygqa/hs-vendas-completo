@@ -2,7 +2,7 @@
 // SUÍTE DE TESTES AUTOMATIZADOS — VENDAS / 5) PROCESSO DE TROCA
 // Telas: /pedidos.html (cliente) e /admin.html (administrador)
 // Base: DRS_LES_2_2026 — RF0041 a RF0045, RF0054, RN0041, RN0042, RN0043, RN0046
-// (um teste por requisito)
+// (um teste por requisito; a recusa de troca e o estorno financeiro não fazem parte do escopo)
 //
 // Massa de dados: pedido #1 ENTREGUE (1× SSD, R$ 1.250,00 — item de pedido 1)
 // e pedido #2 EM_TRANSPORTE. O SSD tem 18 un. em estoque.
@@ -29,18 +29,32 @@ describe('Vendas — Processo de troca (RF0041 a RF0045, RF0054, RN0041 a RN0043
     cy.resetarBase();
   });
 
-  it('CTV016 — o cliente solicita a troca de um item e o pedido passa a EM TROCA (RF0041, RN0041)', () => {
+  it('16. deve solicitar a troca de um item ou de toda a compra, passando o pedido a EM TROCA (RF0041, RN0041)', () => {
+    // pedido #3 (ENTREGUE): 1× Headset + 1× Teclado, para trocar a compra inteira
+    cy.criarPedidoViaApi({ itens: [{ produtoId: PRODUTO.HEADSET, quantidade: 1 }, { produtoId: PRODUTO.TECLADO, quantidade: 1 }] })
+      .then((pedido) => cy.avancarPedidoViaApi(pedido.id, 'ENTREGUE'));
     abrirPedidos();
 
+    // um item: o SSD do pedido #1
     solicitarTrocaPelaTela(1, { motivo: 'O SSD apresentou falha de leitura' });
 
     cy.get('[data-cy=msg-sucesso]').should('be.visible').and('contain.text', 'EM TROCA');
     cardPedido(1).should('have.attr', 'data-status', 'EM_TROCA');
     cardPedido(1).find('[data-cy=troca-situacao]').should('contain.text', 'Aguardando autorização');
     cardPedido(1).find('[data-cy=troca-resumo]').should('contain.text', 'O SSD apresentou falha de leitura');
+
+    // toda a compra: o botão marca todos os itens do pedido #3
+    cardPedido(3).find('[data-cy=btn-solicitar-troca]').click();
+    cardPedido(3).find('[data-cy=btn-selecionar-todos]').click();
+    cardPedido(3).find('[data-cy=chk-item-troca]:checked').should('have.length', 2);
+    cardPedido(3).find('[data-cy=i-motivo-troca]').type('Quero devolver a compra inteira');
+    cardPedido(3).find('[data-cy=btn-enviar-troca]').click();
+
+    cardPedido(3).should('have.attr', 'data-status', 'EM_TROCA');
+    cardPedido(3).find('[data-cy=troca-resumo]').should('contain.text', 'Headset').and('contain.text', 'Teclado');
   });
 
-  it('CTV017 — só itens de pedidos ENTREGUES podem receber solicitação de troca (RN0043)', () => {
+  it('17. não deve permitir solicitar troca de itens de pedidos que não estejam ENTREGUES (RN0043)', () => {
     abrirPedidos();
 
     cardPedido(1).should('have.attr', 'data-status', 'ENTREGUE');
@@ -57,7 +71,7 @@ describe('Vendas — Processo de troca (RF0041 a RF0045, RF0054, RN0041 a RN0043
     });
   });
 
-  it('CTV018 — o administrador visualiza as solicitações de troca com cliente, itens e motivo (RF0043)', () => {
+  it('18. deve visualizar as solicitações de troca com cliente, itens e motivo (RF0043)', () => {
     cy.solicitarTrocaViaApi(1, [{ itemPedidoId: 1, quantidade: 1 }], 'SSD não reconhecido pela placa-mãe');
     abrirAdmin();
 
@@ -69,7 +83,7 @@ describe('Vendas — Processo de troca (RF0041 a RF0045, RF0054, RN0041 a RN0043
     cy.get('[data-cy=trocas-pendentes]').should('have.text', '1');
   });
 
-  it('CTV019 — o administrador autoriza a troca (TROCA AUTORIZADA) e o cliente recebe uma notificação (RF0042, RN0046)', () => {
+  it('19. deve autorizar a troca (TROCA AUTORIZADA) e notificar o cliente (RF0042, RN0046)', () => {
     cy.solicitarTrocaViaApi(1, [{ itemPedidoId: 1, quantidade: 1 }]).then((troca) => {
       abrirAdmin();
       abrirAbaTrocas();
@@ -86,7 +100,7 @@ describe('Vendas — Processo de troca (RF0041 a RF0045, RF0054, RN0041 a RN0043
     });
   });
 
-  it('CTV020 — o administrador confirma o recebimento com retorno ao estoque: pedido TROCADO e item volta ao estoque (RF0044, RF0054, RN0042)', () => {
+  it('20. deve confirmar o recebimento com retorno ao estoque: pedido TROCADO e item de volta ao estoque (RF0044, RF0054, RN0042)', () => {
     cy.solicitarTrocaViaApi(1, [{ itemPedidoId: 1, quantidade: 1 }]).then((troca) => {
       cy.autorizarTrocaViaApi(troca.id);
       abrirAdmin();
@@ -103,7 +117,7 @@ describe('Vendas — Processo de troca (RF0041 a RF0045, RF0054, RN0041 a RN0043
     });
   });
 
-  it('CTV021 — o recebimento gera um cupom de troca, no valor dos itens trocados, disponível ao cliente (RF0045)', () => {
+  it('21. deve gerar um cupom de troca no valor dos itens trocados, disponível ao cliente (RF0045)', () => {
     cy.solicitarTrocaViaApi(1, [{ itemPedidoId: 1, quantidade: 1 }]).then((troca) => {
       cy.autorizarTrocaViaApi(troca.id);
       cy.confirmarRecebimentoTrocaViaApi(troca.id, true);

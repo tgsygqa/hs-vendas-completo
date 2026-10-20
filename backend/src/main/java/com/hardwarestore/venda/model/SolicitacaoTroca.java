@@ -30,10 +30,9 @@ import java.util.List;
  * pedido devera ser EM TROCA") - esta classe nunca duplica esse estado,
  * so acrescenta o que falta nele.
  *
- * Decisao assumida (nao ha RN nomeada para isso no DRS, so RF0042
- * "autorizar trocas" implicando que o administrador tambem pode optar por
- * NAO autorizar): existe um caminho de recusa, com motivo. Recusar devolve
- * o pedido para ENTREGUE.
+ * Escopo (enunciado da atividade): estorno financeiro no cartao e recusa de
+ * troca pelo administrador NAO fazem parte dos requisitos e nao sao
+ * implementados - toda solicitacao e autorizada e depois recebida.
  */
 @Entity
 @Table(name = "solicitacoes_troca")
@@ -65,15 +64,8 @@ public class SolicitacaoTroca {
     @Column(nullable = false)
     private LocalDateTime dataSolicitacao;
 
-    // Preenchido quando o administrador autoriza (RF0042) ou recusa.
+    // Preenchido quando o administrador autoriza (RF0042).
     private LocalDateTime dataDecisaoAdmin;
-
-    @Column(nullable = false)
-    @Builder.Default
-    private boolean recusada = false;
-
-    @Column(length = 1000)
-    private String motivoRecusa;
 
     // RF0044 - "o administrador devera informar se os itens trocados
     // deverao retornar ao estoque". Nulo ate a confirmacao de recebimento;

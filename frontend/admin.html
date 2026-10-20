@@ -35,9 +35,11 @@
 // Painel do ADMINISTRADOR (CDU02). O projeto nao tem autenticacao (fora do
 // escopo do DRS), entao "perfil de administrador" e so esta tela separada.
 //
-//   Pedidos : validar pagamento (RN0037/RN0038), despachar (RF0039/RN0039),
-//             confirmar entrega (RF0040/RN0040)
-//   Trocas  : visualizar (RF0043), autorizar (RF0042), recusar,
+//   Pedidos : consultar, despachar (RF0039/RN0039), confirmar entrega (RF0040/RN0040).
+//             A validacao do pagamento (RN0037/RN0038) NAO e do administrador:
+//             o sistema faz sozinho (PagamentoValidacaoJob) e o status muda para
+//             APROVADA/REPROVADA - esta tela so acompanha.
+//   Trocas  : visualizar (RF0043), autorizar (RF0042),
 //             confirmar recebimento + retorno ao estoque (RF0044/RF0054),
 //             geracao do cupom de troca (RF0045)
 //   Estoque : conferir a baixa (RF0053) e a reentrada (RF0054)
@@ -50,18 +52,38 @@ const state = {
   pedidos: [],
   trocas: [],
   produtos: [],
-  recusandoTrocaId: null,   // solicitacao cujo campo de motivo de recusa esta aberto
 };
 
-async function carregar() {
+let versao = 0;   // sobe a cada carga; a atualizacao automatica descarta resposta que ficou velha
+
+async function buscar() {
   const qs = state.filtroStatus ? `?status=${state.filtroStatus}` : '';
   const [pedidos, trocas, produtos] = await Promise.all([
     api(`/pedidos${qs}`),
     api('/trocas'),
     api('/produtos'),
   ]);
-  Object.assign(state, { pedidos, trocas, produtos });
+  return { pedidos, trocas, produtos };
 }
+
+async function carregar() {
+  Object.assign(state, await buscar());
+  versao++;
+}
+
+// O sistema valida o pagamento sozinho, entao o status muda sem ninguem clicar: a cada 3 s a
+// tela busca os dados de novo e SO redesenha se algo mudou (para nao atrapalhar quem esta usando).
+const assinatura = d => JSON.stringify([
+  d.pedidos.map(p => [p.id, p.status]), d.trocas.map(t => [t.id, t.statusPedido]),
+  d.produtos.map(p => [p.id, p.quantidadeEstoque, p.quantidadeDisponivel])]);
+
+setInterval(async () => {
+  const v = versao;
+  try {
+    const novo = await buscar();
+    if (v === versao && assinatura(novo) !== assinatura(state)) { Object.assign(state, novo); versao++; render(); }
+  } catch (_) { /* sem conexao agora: tenta de novo no proximo ciclo */ }
+}, 3000);
 
 async function atualizar() {
   esconderErro();
@@ -78,7 +100,7 @@ function render() {
   document.getElementById('nav-container').innerHTML = renderNav('admin');
   ['pedidos', 'trocas', 'estoque'].forEach(a =>
     document.getElementById(`tab-${a}`).classList.toggle('ativo', state.aba === a));
-  const pendentes = state.trocas.filter(t => !t.recusada && ['EM_TROCA', 'TROCA_AUTORIZADA'].includes(t.statusPedido)).length;
+  const pendentes = state.trocas.filter(t => ['EM_TROCA', 'TROCA_AUTORIZADA'].includes(t.statusPedido)).length;
   document.querySelector('[data-cy=trocas-pendentes]').textContent = pendentes;
 
   const c = document.getElementById('view-container');
@@ -101,6 +123,10 @@ function viewPedidos() {
           ${STATUS.map(s => `<option value="${s}" ${state.filtroStatus === s ? 'selected' : ''}>${statusTexto(s)}</option>`).join('')}
         </select>
       </div>
+      <p class="muted small" data-cy="aviso-validacao-automatica" style="margin:0 0 12px;">
+        O pagamento é validado automaticamente pelo sistema (simulação da operadora do cartão): cartão com final 0000 é recusado, os demais são aprovados.
+        Pedidos APROVADOS ficam disponíveis para despacho.
+      </p>
       ${state.pedidos.length === 0
         ? '<div class="empty" data-cy="sem-pedidos">Nenhum pedido encontrado.</div>'
         : `<table class="grid" data-cy="tabela-pedidos">
@@ -115,7 +141,7 @@ function linhaPedido(p) {
   const pag = (p.pagamentos || []).map(g => `${esc(g.cartaoBandeira)} •••• ${esc(g.cartaoUltimosQuatroDigitos)} · ${fmt(g.valor)}`).join('<br>');
   let acao = '<span class="muted small">—</span>';
   if (p.status === 'EM_PROCESSAMENTO')
-    acao = `<button class="action sm" data-cy="btn-validar-pagamento" onclick="validarPagamento(${p.id})">Validar pagamento</button>`;
+    acao = '<span class="muted small" data-cy="aguardando-validacao">Aguardando a validação automática do pagamento…</span>';
   else if (p.status === 'APROVADA')
     acao = `<button class="action sm" data-cy="btn-despachar" onclick="despachar(${p.id})">Despachar</button>`;
   else if (p.status === 'EM_TRANSPORTE')
@@ -147,11 +173,6 @@ async function acaoPedido(path, mensagem) {
   } catch (e) { mostrarErro(e.message); }
 }
 
-function validarPagamento(id) {
-  return acaoPedido(`/pedidos/${id}/validar-pagamento`, p => p.status === 'APROVADA'
-    ? `Pedido #${id}: pagamento aprovado pela operadora — status APROVADA e baixa realizada no estoque.`
-    : `Pedido #${id}: pagamento REPROVADO — ${p.motivoReprovacao}. O estoque foi preservado.`);
-}
 function despachar(id) {
   return acaoPedido(`/pedidos/${id}/despachar`, () => `Pedido #${id} despachado — status EM TRANSPORTE.`);
 }
@@ -178,20 +199,13 @@ function viewTrocas() {
 function linhaTroca(t) {
   const itens = (t.itens || []).map(i => `${i.quantidade}× ${esc(i.produtoNome)} (${fmt(i.valor)})`).join('<br>');
   let situacao, acao = '<span class="muted small">—</span>';
-  if (t.recusada) {
-    situacao = `<span class="status TROCADO" data-cy="troca-situacao" data-situacao="RECUSADA">RECUSADA</span><div class="small muted" style="margin-top:6px;">${esc(t.motivoRecusa)}</div>`;
-  } else if (t.cupomGerado) {
+  if (t.cupomGerado) {
     situacao = `<span class="status TROCADO" data-cy="troca-situacao" data-situacao="TROCADO">TROCADO</span>
       <div class="small muted" style="margin-top:6px;">Cupom <b data-cy="troca-cupom">${esc(t.cupomGerado.codigo)}</b> de ${fmt(t.cupomGerado.valor)}<br>
       Itens ${t.itensRetornaramEstoque ? 'voltaram' : 'não voltaram'} ao estoque</div>`;
   } else if (t.statusPedido === 'EM_TROCA') {
     situacao = `<span class="status EM_TROCA" data-cy="troca-situacao" data-situacao="EM_TROCA">EM TROCA</span>`;
-    acao = state.recusandoTrocaId === t.id
-      ? `<input data-cy="i-motivo-recusa" id="motivo-recusa-${t.id}" placeholder="Motivo da recusa" style="margin-bottom:6px;">
-         <button class="danger" data-cy="btn-confirmar-recusa" onclick="recusarTroca(${t.id})">Confirmar recusa</button>
-         <button class="secondary sm" data-cy="btn-cancelar-recusa" onclick="state.recusandoTrocaId=null; render();">Cancelar</button>`
-      : `<button class="action sm" data-cy="btn-autorizar-troca" onclick="autorizarTroca(${t.id})">Autorizar</button>
-         <button class="danger" data-cy="btn-recusar-troca" onclick="state.recusandoTrocaId=${t.id}; render();">Recusar</button>`;
+    acao = `<button class="action sm" data-cy="btn-autorizar-troca" onclick="autorizarTroca(${t.id})">Autorizar</button>`;
   } else if (t.statusPedido === 'TROCA_AUTORIZADA') {
     situacao = `<span class="status TROCA_AUTORIZADA" data-cy="troca-situacao" data-situacao="TROCA_AUTORIZADA">TROCA AUTORIZADA</span>`;
     // RF0044 - o administrador informa se os itens voltam ao estoque.
@@ -216,7 +230,6 @@ async function acaoTroca(path, options, mensagem) {
   esconderErro();
   try {
     const resultado = await api(path, { method: 'PATCH', ...options });
-    state.recusandoTrocaId = null;
     await carregar();
     render();
     mostrarSucesso(mensagem(resultado));
@@ -226,12 +239,6 @@ async function acaoTroca(path, options, mensagem) {
 function autorizarTroca(id) {
   return acaoTroca(`/trocas/${id}/autorizar`, {}, t =>
     `Troca #${id} autorizada — pedido #${t.pedidoId} agora está TROCA AUTORIZADA. O cliente foi notificado.`);
-}
-
-function recusarTroca(id) {
-  const motivoRecusa = document.getElementById(`motivo-recusa-${id}`).value.trim();
-  return acaoTroca(`/trocas/${id}/recusar`, { body: JSON.stringify({ motivoRecusa }) }, t =>
-    `Troca #${id} recusada — pedido #${t.pedidoId} voltou para ENTREGUE. O cliente foi notificado.`);
 }
 
 function confirmarRecebimento(id, retorna) {
@@ -248,7 +255,7 @@ function viewEstoque() {
     <div class="card">
       <h2>Estoque</h2>
       <table class="grid" data-cy="tabela-estoque">
-        <thead><tr><th>Produto</th><th>Categoria</th><th>Preço</th><th class="right-text">Em estoque</th><th class="right-text">Reservado em carrinhos</th><th class="right-text">Disponível</th></tr></thead>
+        <thead><tr><th>Produto</th><th>Categoria</th><th>Preço</th><th class="right-text">Em estoque</th><th class="right-text">Reservado (carrinhos e compras em processamento)</th><th class="right-text">Disponível</th></tr></thead>
         <tbody>${state.produtos.map(p => `
           <tr data-cy="estoque-row" data-id="${p.id}">
             <td data-cy="col-produto">${esc(p.nome)}</td>

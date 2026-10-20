@@ -1,6 +1,7 @@
 package com.hardwarestore.venda.controller;
 
 import com.hardwarestore.venda.dto.FinalizarCompraRequestDTO;
+import com.hardwarestore.venda.dto.FreteResponseDTO;
 import com.hardwarestore.venda.dto.PedidoResponseDTO;
 import com.hardwarestore.venda.dto.SolicitacaoTrocaResponseDTO;
 import com.hardwarestore.venda.dto.SolicitarTrocaRequestDTO;
@@ -22,8 +23,9 @@ import java.util.List;
  * CDU02 - Gerenciar Venda Eletronica. A criacao de um pedido e a listagem
  * "meus pedidos" pertencem ao cliente (por isso aninhadas sob
  * /api/clientes/{clienteId}/pedidos, igual carrinho); as acoes do
- * administrador (validar pagamento, despachar, confirmar entrega) e a
- * consulta geral vivem em /api/pedidos. Nao ha autenticacao no projeto (fora
+ * administrador (despachar, confirmar entrega) e a consulta geral vivem em
+ * /api/pedidos. A validacao do pagamento (RN0037/RN0038) e automatica: quem
+ * faz e o PagamentoValidacaoJob, nao ha endpoint para isso. Nao ha autenticacao no projeto (fora
  * do escopo do DRS): "administrador" e "cliente" sao so telas diferentes.
  */
 @RestController
@@ -46,6 +48,14 @@ public class PedidoController {
         return ResponseEntity.status(201).body(pedido);
     }
 
+    // RF0034 - frete do carrinho atual do cliente para o endereco escolhido -> 200 OK.
+    @GetMapping("/api/clientes/{clienteId}/frete")
+    public ResponseEntity<FreteResponseDTO> calcularFrete(
+            @PathVariable Long clienteId, @RequestParam Long enderecoId
+    ) {
+        return ResponseEntity.ok(pedidoService.calcularFrete(clienteId, enderecoId));
+    }
+
     // "Meus pedidos" do cliente -> 200 OK
     @GetMapping("/api/clientes/{clienteId}/pedidos")
     public ResponseEntity<List<PedidoResponseDTO>> listarDoCliente(@PathVariable Long clienteId) {
@@ -61,14 +71,6 @@ public class PedidoController {
     @GetMapping("/api/pedidos/{id}")
     public ResponseEntity<PedidoResponseDTO> buscarPorId(@PathVariable Long id) {
         return ResponseEntity.ok(pedidoService.buscarPorIdDTO(id));
-    }
-
-    // RN0037/RN0038 - valida o pagamento junto a "operadora" (simulada):
-    // EM_PROCESSAMENTO -> APROVADA (baixa em estoque) ou REPROVADA -> 200 OK /
-    // 409 se o pedido nao esta em EM_PROCESSAMENTO.
-    @PatchMapping("/api/pedidos/{id}/validar-pagamento")
-    public ResponseEntity<PedidoResponseDTO> validarPagamento(@PathVariable Long id) {
-        return ResponseEntity.ok(pedidoService.validarPagamento(id));
     }
 
     // RF0039/RN0039 - administrador despacha: APROVADA -> EM_TRANSPORTE.

@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/** RN0046 - notificacoes do cliente (troca autorizada/recusada, cupom gerado). */
+/** RN0046 - notificacoes do cliente (troca autorizada, cupom gerado). */
 @RestController
 @RequestMapping("/api/clientes/{clienteId}/notificacoes")
 public class NotificacaoController {

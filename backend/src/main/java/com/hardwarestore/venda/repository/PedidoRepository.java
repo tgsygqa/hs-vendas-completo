@@ -20,6 +20,9 @@ public interface PedidoRepository extends JpaRepository<Pedido, Long> {
 
     List<Pedido> findByClienteIdOrderByIdDesc(Long clienteId);
 
+    // RN0037/RN0038 - pedidos que o job de validacao automatica do pagamento ainda precisa tratar.
+    List<Pedido> findByStatusAndDataCriacaoLessThanEqual(StatusPedido status, java.time.LocalDateTime limite);
+
     // Regra complementar (protege RF0025) - usada pelo ClienteService para
     // bloquear a exclusao definitiva de um cliente que possui pedidos.
     boolean existsByClienteId(Long clienteId);

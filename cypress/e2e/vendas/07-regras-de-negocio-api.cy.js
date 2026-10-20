@@ -4,7 +4,7 @@
 // Regras que a interface NÃO deixa o usuário violar (a tela já impede), mas que
 // o backend precisa garantir sozinho: aqui as requisições são feitas direto na
 // API REST, com cy.request. Um teste por requisito.
-// Base: DRS_LES_2_2026 — RN0033, RN0034, RN0035, RN0036, RN0037
+// Base: DRS_LES_2_2026 — RN0033, RN0034, RN0035, RN0036, RN0037 e RNF0011 (tempo de resposta)
 //
 // Massa de dados: João (cliente 1) tem o cartão 1, o endereço 1 e os cupons
 // 1 PROMO-BEMVINDO R$ 50, 2 PROMO-VERAO R$ 30, 3 TROCA-JOAO-PEQUENO R$ 20,
@@ -14,12 +14,12 @@ import { PRODUTO } from '../../support/helpers';
 
 const finalizar = (corpo) => cy.apiRequest('POST', '/clientes/1/pedidos', Object.assign({ enderecoId: 1, cartoes: [], cupomIds: [] }, corpo));
 
-describe('Vendas — Regras de pagamento validadas pela API (RN0033 a RN0037)', () => {
+describe('Vendas — Regras de pagamento validadas pela API (RN0033 a RN0037) e tempo de resposta (RNF0011)', () => {
   beforeEach(() => {
     cy.resetarBase();
   });
 
-  it('CTV023 — não aceita dois cupons promocionais na mesma compra (RN0033)', () => {
+  it('32. não deve aceitar dois cupons promocionais na mesma compra (RN0033)', () => {
     cy.adicionarAoCarrinhoViaApi(1, PRODUTO.HEADSET, 1);
 
     finalizar({ cartoes: [{ cartaoId: 1, valor: 294.8 }], cupomIds: [1, 2] }).then((r) => {
@@ -28,7 +28,7 @@ describe('Vendas — Regras de pagamento validadas pela API (RN0033 a RN0037)', 
     });
   });
 
-  it('CTV024 — com mais de um cartão e sem cupom, cada cartão precisa pagar ao menos R$ 10,00 (RN0034)', () => {
+  it('33. deve exigir ao menos R$ 10,00 em cada cartão quando há mais de um cartão e nenhum cupom (RN0034)', () => {
     cy.criarCartaoViaApi(1).then((cartao2) => {
       cy.adicionarAoCarrinhoViaApi(1, PRODUTO.HEADSET, 1);
 
@@ -43,7 +43,7 @@ describe('Vendas — Regras de pagamento validadas pela API (RN0033 a RN0037)', 
     });
   });
 
-  it('CTV025 — combinado com cupom, o cartão pode pagar menos de R$ 10,00 (RN0035)', () => {
+  it('34. deve permitir que o cartão pague menos de R$ 10,00 quando combinado com cupom (RN0035)', () => {
     cy.criarCartaoViaApi(1).then((cartao2) => {
       cy.adicionarAoCarrinhoViaApi(1, PRODUTO.HEADSET, 1);
 
@@ -54,7 +54,7 @@ describe('Vendas — Regras de pagamento validadas pela API (RN0033 a RN0037)', 
     });
   });
 
-  it('CTV026 — não permite cupons desnecessários e, quando o cupom supera a compra, gera um cupom de troco (RN0036)', () => {
+  it('35. não deve permitir cupons desnecessários e deve gerar um cupom de troco quando o cupom supera a compra (RN0036)', () => {
     cy.adicionarAoCarrinhoViaApi(1, PRODUTO.HEADSET, 1);
 
     // R$ 500 já cobrem os R$ 374,80; o de R$ 20 seria desnecessário
@@ -72,7 +72,7 @@ describe('Vendas — Regras de pagamento validadas pela API (RN0033 a RN0037)', 
     });
   });
 
-  it('CTV027 — a forma de pagamento é validada: um cupom já utilizado não pode ser usado de novo (RN0037)', () => {
+  it('36. deve validar a forma de pagamento, recusando um cupom já utilizado (RN0037)', () => {
     cy.adicionarAoCarrinhoViaApi(1, PRODUTO.HEADSET, 1);
     finalizar({ cartoes: [{ cartaoId: 1, valor: 324.8 }], cupomIds: [1] }).its('status').should('eq', 201);
 
@@ -80,6 +80,18 @@ describe('Vendas — Regras de pagamento validadas pela API (RN0033 a RN0037)', 
     finalizar({ cartoes: [{ cartaoId: 1, valor: 324.8 }], cupomIds: [1] }).then((r) => {
       expect(r.status).to.eq(409);
       expect(r.body.mensagem).to.contain('já foi utilizado');
+    });
+  });
+
+  it('37. deve responder às consultas de Vendas em no máximo 1 segundo (RNF0011)', () => {
+    const consultas = ['/produtos', '/clientes/1/carrinho', '/clientes/1/pedidos', '/clientes/1/frete?enderecoId=1',
+      '/clientes/1/cupons', '/clientes/1/notificacoes', '/pedidos', '/trocas'];
+    cy.apiRequest('GET', '/produtos'); // aquecimento: a primeira chamada paga o custo de iniciar a conexão
+    consultas.forEach((caminho) => {
+      cy.apiRequest('GET', caminho).then((r) => {
+        expect(r.status, caminho).to.eq(200);
+        expect(r.duration, `tempo de resposta de ${caminho} (ms)`).to.be.lessThan(1000);
+      });
     });
   });
 });

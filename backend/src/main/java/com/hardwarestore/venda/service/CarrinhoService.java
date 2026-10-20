@@ -203,6 +203,13 @@ public class CarrinhoService {
         carrinhoRepository.save(carrinho);
     }
 
+    /** Total de unidades no carrinho (base do calculo do frete, RF0034); 0 se o cliente ainda nao tem carrinho. */
+    public int unidadesNoCarrinho(Long clienteId) {
+        return carrinhoRepository.findByClienteId(clienteId)
+                .map(c -> c.getItens().stream().mapToInt(ItemCarrinho::getQuantidade).sum())
+                .orElse(0);
+    }
+
     public Carrinho buscarCarrinhoExistente(Long clienteId) {
         return carrinhoRepository.findByClienteId(clienteId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Este cliente ainda não tem um carrinho."));
@@ -254,7 +261,7 @@ public class CarrinhoService {
         int disponivel = produtoService.quantidadeDisponivelPara(produto, clienteId);
         if (quantidadeFinal > disponivel) {
             String detalhe = disponivel < produto.getQuantidadeEstoque()
-                    ? " (parte do estoque está bloqueada em carrinhos de outros clientes - RN0044)"
+                    ? " (parte do estoque está bloqueada em carrinhos de outros clientes ou em compras em processamento - RN0044)"
                     : "";
             throw new RegraDeNegocioException(
                     "Estoque insuficiente para \"" + produto.getNome() + "\". Disponível: "

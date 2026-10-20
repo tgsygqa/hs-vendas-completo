@@ -1,6 +1,6 @@
 // ============================================================================
 // SUÍTE DE TESTES AUTOMATIZADOS — VENDAS / 3) FINALIZAR COMPRA (ENTREGA E PAGAMENTO)
-// Base: DRS_LES_2_2026 — RF0033 a RF0038, RN0032 (um teste por requisito)
+// Base: DRS_LES_2_2026 — RF0033 a RF0038, RN0032, RN0038 (um teste por requisito)
 // As regras de pagamento RN0033 a RN0037 estão em 07-regras-de-negocio-api.cy.js.
 //
 // Massa de dados: João Silva (cliente 1) tem 1 endereço ("Casa"), 1 cartão
@@ -9,19 +9,19 @@
 // ============================================================================
 import {
   PRODUTO, FRETE, brl, abrirLoja, adicionarNaLoja, irParaCheckout, escolherPrimeiroEndereco,
-  pagarComCartao, escolherCupom, confirmarPagamento,
+  pagarComCartao, escolherCupom, confirmarPagamento, abrirPedidos, cardPedido,
 } from '../../support/helpers';
 
 const HEADSET = 349.9;                       // preço unitário
 const TOTAL_1_HEADSET = HEADSET + FRETE;     // R$ 374,80
 
-describe('Vendas — Finalizar compra (RF0033 a RF0038, RN0032)', () => {
+describe('Vendas — Finalizar compra (RF0033 a RF0038, RN0032, RN0038)', () => {
   beforeEach(() => {
     cy.resetarBase();
     abrirLoja();
   });
 
-  it('CTV006 — deve realizar a compra a partir do carrinho e finalizá-la com o pedido EM PROCESSAMENTO (RF0033, RF0038)', () => {
+  it('6. deve realizar a compra com um cartão, finalizando-a com o pedido EM PROCESSAMENTO e vendo-o APROVADA após a validação do pagamento (RF0033, RF0038, RN0038)', () => {
     adicionarNaLoja(PRODUTO.HEADSET, 1);
     irParaCheckout();
     escolherPrimeiroEndereco();
@@ -33,17 +33,45 @@ describe('Vendas — Finalizar compra (RF0033 a RF0038, RN0032)', () => {
     cy.get('[data-cy=pedido-id]').should('contain.text', '#3'); // os pedidos #1 e #2 já existem na massa de dados
     cy.get('[data-cy=pedido-status]').should('have.attr', 'data-status', 'EM_PROCESSAMENTO').and('contain.text', 'EM PROCESSAMENTO');
     cy.get('[data-cy=pedido-total]').should('have.text', brl(TOTAL_1_HEADSET));
+
+    // o sistema valida o pagamento sozinho (aqui adiantado, sem esperar os segundos da operadora): compra aprovada
+    cy.validarPagamentos(3).should('eq', 1);
+    abrirPedidos();
+    cardPedido(3).should('have.attr', 'data-status', 'APROVADA');
   });
 
-  it('CTV007 — o frete é calculado e somado ao total da compra (RF0034)', () => {
+  it('7. deve calcular o frete com base nos itens e no endereço e somá-lo ao total da compra (RF0034)', () => {
     adicionarNaLoja(PRODUTO.HEADSET, 1);
     irParaCheckout();
 
+    // sem endereço escolhido ainda não há frete
+    cy.get('[data-cy=frete-valor]').should('have.text', 'Selecione o endereço');
+
+    // "Casa" é em SP e o carrinho tem 1 unidade: tarifa de SP, R$ 24,90
+    escolherPrimeiroEndereco();
     cy.get('[data-cy=frete-valor]').should('have.text', brl(FRETE));
     cy.get('[data-cy=total-compra]').should('have.text', brl(TOTAL_1_HEADSET));
+
+    // o ENDEREÇO muda o frete: um endereço no RJ tem tarifa de R$ 29,90
+    cy.apiRequest('POST', '/clientes/1/enderecos', {
+      apelido: 'Rio', tipoResidencia: 'Apartamento', tipoLogradouro: 'Rua', logradouro: 'das Laranjeiras', numero: '50',
+      bairro: 'Laranjeiras', cep: '22240-000', cidade: 'Rio de Janeiro', estado: 'RJ', pais: 'Brasil', cobranca: false, entrega: true,
+    }).its('status').should('eq', 201);
+    abrirLoja();
+    irParaCheckout();
+    cy.get('[data-cy=radio-endereco]').last().check();
+    cy.get('[data-cy=frete-valor]').should('have.text', brl(29.9));
+    cy.get('[data-cy=total-compra]').should('have.text', brl(HEADSET + 29.9));
+
+    // os ITENS mudam o frete: com 2 unidades, +R$ 3,00 (a partir da 2ª)
+    cy.get('[data-cy=btn-voltar-carrinho]').click();
+    adicionarNaLoja(PRODUTO.HEADSET, 1);
+    irParaCheckout();
+    cy.get('[data-cy=frete-valor]').should('have.text', brl(32.9));
+    cy.get('[data-cy=total-compra]').should('have.text', brl(2 * HEADSET + 32.9));
   });
 
-  it('CTV008 — deve cadastrar um novo endereço de entrega durante a compra e incorporá-lo ao perfil do cliente (RF0035)', () => {
+  it('8. deve cadastrar um novo endereço de entrega durante a compra e incorporá-lo ao perfil do cliente (RF0035)', () => {
     adicionarNaLoja(PRODUTO.HEADSET, 1);
     irParaCheckout();
 
@@ -65,7 +93,7 @@ describe('Vendas — Finalizar compra (RF0033 a RF0038, RN0032)', () => {
     cy.apiRequest('GET', '/clientes/1').its('body.enderecos').should('have.length', 2);
   });
 
-  it('CTV009 — deve cadastrar um novo cartão de crédito durante a compra e incorporá-lo ao perfil do cliente (RF0036)', () => {
+  it('9. deve cadastrar um novo cartão de crédito durante a compra e incorporá-lo ao perfil do cliente (RF0036)', () => {
     adicionarNaLoja(PRODUTO.HEADSET, 1);
     irParaCheckout();
 
@@ -81,7 +109,7 @@ describe('Vendas — Finalizar compra (RF0033 a RF0038, RN0032)', () => {
     cy.apiRequest('GET', '/clientes/1').its('body.cartoes').should('have.length', 2);
   });
 
-  it('CTV010 — deve pagar com um cupom promocional e completar com cartão de crédito (RF0037)', () => {
+  it('10. deve pagar com um cupom promocional e completar com cartão de crédito (RF0037)', () => {
     adicionarNaLoja(PRODUTO.HEADSET, 1);
     irParaCheckout();
     escolherPrimeiroEndereco();
@@ -98,7 +126,7 @@ describe('Vendas — Finalizar compra (RF0033 a RF0038, RN0032)', () => {
     });
   });
 
-  it('CTV011 — se o estoque mudar antes da finalização, ajusta a quantidade ou remove o item indisponível, com alerta (RN0032)', () => {
+  it('11. deve ajustar a quantidade ou remover o item indisponível, com alerta, se o estoque mudar antes da finalização (RN0032)', () => {
     adicionarNaLoja(PRODUTO.HEADSET, 5);
     irParaCheckout();
     escolherPrimeiroEndereco();

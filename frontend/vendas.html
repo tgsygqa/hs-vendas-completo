@@ -27,7 +27,8 @@
 // CLIENTE_ID, API_BASE, api(), fmt(), esc() e mostrarErro() vem de shared.js.
 // O cliente vem da URL (?clienteId=); sem parametro, e o Joao Silva (id 1).
 // ---------------------------------------------------------------------
-const FRETE = 24.90;
+// RF0034 - o frete NAO e fixo: o backend calcula pela UF do endereco escolhido e pelas
+// unidades do carrinho (GET /clientes/{id}/frete) e a tela mostra o resultado (state.frete).
 
 const ICONES_CATEGORIA = {
   'Placas de Vídeo': '🎮', 'Placas de Video': '🎮', 'Processadores': '🧠', 'Periféricos': '⌨️', 'Perifericos': '⌨️',
@@ -44,6 +45,7 @@ const state = {
   mostrarNovoEndereco: false,
   mostrarNovoCartao: false,
   enderecoSelecionado: null,
+  frete: null,                       // frete calculado pelo backend para o endereco selecionado
   cartoesSelecionados: new Set(),   // ids dos cartoes marcados; valor e automatico
   cupomSelecionado: null,            // um unico id, ou null
   pedidoFinalizado: null,
@@ -155,9 +157,9 @@ async function render() {
 function textoEstoque(p) {
   const reservado = (p.quantidadeEstoque ?? p.quantidadeDisponivel) - p.quantidadeDisponivel;
   if (p.quantidadeDisponivel > 0) {
-    return `${p.quantidadeDisponivel} em estoque` + (reservado > 0 ? ` · ${reservado} reservado(s) em outros carrinhos` : '');
+    return `${p.quantidadeDisponivel} em estoque` + (reservado > 0 ? ` · ${reservado} reservado(s) em outros carrinhos ou compras` : '');
   }
-  return reservado > 0 ? 'Indisponível — reservado em outros carrinhos' : 'Indisponível';
+  return reservado > 0 ? 'Indisponível — reservado em outros carrinhos ou compras' : 'Indisponível';
 }
 
 function viewCarrinho() {
@@ -307,9 +309,30 @@ async function dispensarExpirado(expiradoId) {
   } catch (e) { mostrarErro(e.message); }
 }
 
-function irParaCheckout() {
+async function irParaCheckout() {
   esconderErro();
   state.view = 'checkout';
+  state.frete = null;
+  render();
+  // se o cliente ja tinha escolhido um endereco, o frete precisa ser recalculado para o carrinho atual
+  if (state.enderecoSelecionado) { await atualizarFrete(); render(); }
+}
+
+// RF0034 - frete (itens do carrinho + UF do endereco) calculado pelo backend.
+async function atualizarFrete() {
+  if (!state.enderecoSelecionado) { state.frete = null; return; }
+  const escolhido = state.enderecoSelecionado;
+  try {
+    const f = await api(`/clientes/${CLIENTE_ID}/frete?enderecoId=${escolhido}`);
+    if (state.enderecoSelecionado === escolhido) state.frete = f;   // ignora resposta de um endereco que ja foi trocado
+  } catch (e) { state.frete = null; mostrarErro(e.message); }
+}
+
+async function selecionarEndereco(id) {
+  state.enderecoSelecionado = id;
+  state.frete = null;
+  render();
+  await atualizarFrete();
   render();
 }
 
@@ -317,7 +340,8 @@ function irParaCheckout() {
 // VIEW: CHECKOUT (RF0033-RF0038, RN0023-RN0025, RN0033-RN0036)
 // ========================================================================
 function valorProdutos() { return state.carrinho.total; }
-function valorTotalCompra() { return valorProdutos() + FRETE; }
+function valorFrete() { return state.frete ? Number(state.frete.valor) : 0; }
+function valorTotalCompra() { return valorProdutos() + valorFrete(); }
 
 function valorCupomSelecionado() {
   if (!state.cupomSelecionado) return 0;
@@ -367,7 +391,7 @@ function viewCheckout() {
             <label class="select-card ${state.enderecoSelecionado === e.id ? 'selected' : ''}" data-cy="radio-endereco-card">
               <input type="radio" name="endereco" value="${e.id}" data-cy="radio-endereco"
                 ${state.enderecoSelecionado === e.id ? 'checked' : ''}
-                onchange="state.enderecoSelecionado=${e.id}; render();">
+                onchange="selecionarEndereco(${e.id})">
               <div class="titulo">${esc(e.apelido)}</div>
               <div class="detalhe">${esc(e.tipoLogradouro)} ${esc(e.logradouro)}, ${esc(e.numero)} — ${esc(e.bairro)}, ${esc(e.cidade)}/${esc(e.estado)}</div>
             </label>
@@ -413,7 +437,8 @@ function viewCheckout() {
         <div class="card">
           <h2>Resumo da Compra</h2>
           <div class="total-line"><span>Produtos</span><span class="v">${fmt(valorProdutos())}</span></div>
-          <div class="total-line"><span>Frete</span><span class="v" data-cy="frete-valor">${fmt(FRETE)}</span></div>
+          <div class="total-line"><span>Frete${state.frete ? ` <span class="muted small" data-cy="frete-detalhe">(${esc(state.frete.regiao)} · ${state.frete.unidades} un.)</span>` : ''}</span>
+            <span class="v" data-cy="frete-valor">${state.frete ? fmt(state.frete.valor) : 'Selecione o endereço'}</span></div>
           ${state.cupomSelecionado ? `<div class="total-line"><span>Cupom</span><span class="v" style="color:var(--ok);" data-cy="cupom-desconto">− ${fmt(valorCupomSelecionado())}</span></div>` : ''}
           <div class="total-line grand"><span>Total</span><span class="v" data-cy="total-compra">${fmt(valorTotalCompra())}</span></div>
           <div class="total-line falta ${coberto ? 'coberto' : ''}">
@@ -508,6 +533,9 @@ async function salvarNovoEndereco() {
     state.cliente = await api(`/clientes/${CLIENTE_ID}`);
     state.enderecoSelecionado = novo.id;
     state.mostrarNovoEndereco = false;
+    state.frete = null;
+    await render();
+    await atualizarFrete();   // RF0034 - o novo endereco pode estar em outra regiao
     await render();
   } catch (e) { mostrarErro(e.message); }
 }
@@ -536,6 +564,7 @@ async function salvarNovoCartao() {
 async function finalizarCompra() {
   esconderErro();
   if (!state.enderecoSelecionado) return mostrarErro('Selecione um endereço de entrega.');
+  if (!state.frete) { await atualizarFrete(); await render(); }   // garante o frete antes de somar os valores
 
   const valoresPorCartao = calcularValoresPorCartao();
   const cartoes = Object.entries(valoresPorCartao).map(([cartaoId, valor]) => ({ cartaoId: Number(cartaoId), valor }));
@@ -551,6 +580,7 @@ async function finalizarCompra() {
     state.cartoesSelecionados = new Set();
     state.cupomSelecionado = null;
     state.enderecoSelecionado = null;
+    state.frete = null;
     setCarrinho({ itens: [], total: 0, itensExpirados: [], podeComprar: false });
     await render();
   } catch (e) {
@@ -590,7 +620,7 @@ function viewConfirmacao() {
         <div class="li"><span>Frete</span><span>${fmt(p.frete)}</span></div>
         <div class="li"><span>Entrega</span><span>${esc(p.enderecoResumo || '')}</span></div>
       </div>
-      <p class="muted small" style="margin-bottom:18px;" data-cy="aviso-pagamento">O pagamento será validado junto à operadora do cartão. Acompanhe o andamento em "Meus pedidos".</p>
+      <p class="muted small" style="margin-bottom:18px;" data-cy="aviso-pagamento">O sistema valida o pagamento sozinho, junto à operadora do cartão (alguns segundos): o pedido passa de EM PROCESSAMENTO para APROVADA ou REPROVADA. Acompanhe em "Meus pedidos".</p>
       <button class="action" data-cy="btn-nova-compra" onclick="reiniciar()">Fazer nova compra</button>
       <button class="secondary" style="margin-left:8px;" data-cy="btn-ver-pedidos" onclick="window.location.href='${linkPedidos}'">Ver meus pedidos</button>
     </div>

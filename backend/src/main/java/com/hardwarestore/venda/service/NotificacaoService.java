@@ -14,7 +14,7 @@ import java.util.List;
 
 /**
  * RN0046 - gera e consulta as notificacoes do cliente (autorizacao de
- * troca, recusa, cupom de troca disponibilizado).
+ * troca, cupom de troca disponibilizado).
  */
 @Service
 public class NotificacaoService {

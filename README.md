@@ -27,15 +27,17 @@ Abra <http://localhost:5600>. Telas: **Loja** (`vendas.html`), **Meus pedidos** 
 
 | Comando | O que faz |
 |---|---|
-| `npm run test:vendas` | Sobe backend + frontend sozinho e roda os **27 testes Cypress de Vendas** (headless) — um por requisito do DRS |
+| `npm run test:vendas` | Sobe backend + frontend sozinho e roda os **37 testes Cypress de Vendas** (headless): 27 dedicados (um por requisito do DRS) + as 10 etapas do caso de uso completo |
 | `npm run test:cliente` | Sobe o frontend e roda os **64 testes Cypress de Clientes** (não precisa do backend) |
 | `npm run test:e2e` | Tudo: Clientes + Vendas |
 | `npm run test:lista` | Lista os arquivos de teste e quantos testes cada um tem |
 | `npm run test:vendas -- troca` | **Só um arquivo**: o que vem depois do `--` filtra pelo nome (`troca`, `05`, `caso-de-uso`…); aceita vários: `-- 05 06` |
 | `npm run test:vendas:open` | Sobe backend + frontend e abre a **interface do Cypress** (bom para apresentar ao vivo) |
-| `npm run test:vendas:ao-vivo` | Roda o caso de uso completo (CTV022) num **Edge visível** (Chrome: `-- --browser chrome`), sem a janela inicial do Cypress — plano B se ela abrir em branco |
-| `npm run test:backend` | **22 testes de integração JUnit** da API (RN0031–RN0046, fluxo completo) |
+| `npm run test:vendas:ao-vivo` | Roda o caso de uso completo (testes 22 a 31) num **Edge visível** (Chrome: `-- --browser chrome`), sem a janela inicial do Cypress — plano B se ela abrir em branco |
+| `npm run test:backend` | **25 testes de integração JUnit** da API (RN0028–RN0046, frete, validação automática, RNF0012, fluxo completo) |
 | `npm run cy:open` / `cy:run` | Cypress direto (backend e frontend já precisam estar no ar) |
+
+**Roteiro mínimo de demonstração.** O enunciado pede que 11 cenários (compra aprovada, dois cartões, cupons, REPROVADA, expiração do carrinho, fluxo do administrador, troca de um item e da compra inteira, uso do cupom de troca…) sejam apresentados por testes automatizados. A tabela cenário → teste está em [`docs/MATRIZ_RASTREABILIDADE.md`](docs/MATRIZ_RASTREABILIDADE.md) (seção 1) e a ordem de apresentação em [`docs/ROTEIRO_APRESENTACAO.md`](docs/ROTEIRO_APRESENTACAO.md) (seção 1).
 
 ### Atalhos para a demonstração
 
@@ -57,7 +59,7 @@ hardware-store/
 │   ├── index.html                 menu das telas
 │   ├── vendas.html                Loja: carrinho, bloqueio/contador, checkout, confirmação
 │   ├── pedidos.html               Meus pedidos: status, solicitar troca, notificações, cupons
-│   ├── admin.html                 Administração: pagamento, despacho, entrega, trocas, estoque
+│   ├── admin.html                 Administração: pedidos (despacho, entrega), trocas, estoque
 │   ├── V08.html                   Gestão de Clientes (CRUD; dados em memória, sem API)
 │   └── shared.css / shared.js     estilo e utilitários das telas de Vendas
 ├── backend/                       Spring Boot 3.3 · Java 17+ · H2 (padrão) ou PostgreSQL
@@ -68,7 +70,7 @@ hardware-store/
 │       └── common/                exceções, log de escrita (RNF0012) e suporte a testes
 ├── cypress/
 │   ├── e2e/cliente/               suíte de Clientes (64 testes)
-│   ├── e2e/vendas/                suíte de Vendas (27 testes, 7 arquivos)
+│   ├── e2e/vendas/                suíte de Vendas (37 testes, 7 arquivos)
 │   └── support/                   comandos e helpers (reset, montagem de cenário via API)
 ├── scripts/mvn.js                 roda o Maven Wrapper em qualquer sistema operacional
 ├── docs/                          guias e matriz de rastreabilidade
@@ -83,12 +85,12 @@ Cliente                         Administrador                      Status do ped
 monta o carrinho  ──(RN0044: itens bloqueados por 30 min, aviso aos 5 min)
 escolhe endereço, cartões e cupom
 finaliza a compra ───────────────────────────────────────────────▶ EM PROCESSAMENTO
-                                valida o pagamento ──▶ operadora   APROVADA  (baixa em estoque)
-                                                                   REPROVADA (estoque preservado)
+        (o SISTEMA valida o pagamento sozinho, junto à operadora)  APROVADA  (baixa em estoque)
+                                                                   REPROVADA (itens desbloqueados, estoque preservado)
                                 despacha ────────────────────────▶ EM TRANSPORTE
                                 confirma a entrega ──────────────▶ ENTREGUE
-solicita a troca (itens + motivo) ───────────────────────────────▶ EM TROCA
-                                autoriza (ou recusa, com motivo) ▶ TROCA AUTORIZADA  → cliente notificado (RN0046)
+solicita a troca (um item ou a compra toda + motivo) ────────────▶ EM TROCA
+                                autoriza a troca ────────────────▶ TROCA AUTORIZADA  → cliente notificado (RN0046)
                                 confirma recebimento ────────────▶ TROCADO
                                  (itens voltam ou não ao estoque; gera o cupom de troca — RF0045)
 usa o cupom de troca numa nova compra
@@ -97,11 +99,12 @@ usa o cupom de troca numa nova compra
 ### Regras e decisões de implementação
 
 - **Operadora de cartão (simulada).** `PagamentoGatewayService` aprova tudo, **exceto** compras com algum cartão terminado em `0000` — assim dá para mostrar o caminho REPROVADA de forma repetível (cadastre um cartão `4111 1111 1111 0000`). Numa compra reprovada o estoque não é tocado (RN0028) e os cupons usados voltam a ficar disponíveis.
-- **Quando o pagamento é validado.** Depois de finalizada, a compra fica `EM PROCESSAMENTO` (RF0038); o administrador aciona **Validar pagamento** no painel (simula o retorno da operadora).
+- **Validação do pagamento é automática (RN0037/RN0038).** Depois de finalizada, a compra fica `EM PROCESSAMENTO` (RF0038) e o **sistema** valida a forma de pagamento sozinho (job `PagamentoValidacaoJob`), mudando o status para `APROVADA` ou `REPROVADA` — nenhum usuário aciona isso. O atraso simula a resposta da operadora: 10 s por padrão (`app.pagamento.validacao-segundos`), para dar tempo de ver o status `EM PROCESSAMENTO`; as telas de Meus pedidos e Administração se atualizam sozinhas a cada 3 s.
+- **Estoque (RF0053, RN0028, RN0044).** Enquanto a compra está `EM PROCESSAMENTO`, os itens ficam **bloqueados** (não aparecem como disponíveis para outros clientes). Só quando o pagamento é **aprovado** o estoque sofre a baixa; se for reprovado, os itens são desbloqueados e continuam em estoque.
 - **Bloqueio de carrinho (RN0044/RN0045/RNF0042).** O prazo (padrão 30 min, `app.carrinho.bloqueio-minutos`) é renovado a cada item incluído. O estoque que está bloqueado em carrinhos de outros clientes some da disponibilidade deles. Vencido o prazo, o item sai do carrinho e continua listado como *expirado*; o botão de compra fica desabilitado até o cliente adicioná-lo de novo.
 - **RN0032.** Na finalização o estoque é conferido de novo: a quantidade é ajustada automaticamente (ou o item sai do carrinho) e o cliente recebe o alerta.
-- **Frete.** Valor fixo de R$ 24,90 por compra — escolha do grupo, já que o DRS (RF0034) não define a fórmula. A justificativa para apresentar está em [`docs/JUSTIFICATIVA_FRETE.md`](docs/JUSTIFICATIVA_FRETE.md).
-- **Troca recusada.** O DRS só descreve “autorizar”; a recusa (com motivo, pedido volta a `ENTREGUE`) é um caminho assumido.
+- **Frete (RF0034).** Calculado “com base nos itens e no endereço”, com uma regra definida pelo grupo (o DRS não traz a fórmula): **tarifa do estado de entrega** (SP R$ 24,90; RJ, MG, ES, PR, SC e RS R$ 29,90; demais estados R$ 39,90) **+ R$ 3,00 por unidade a partir da 2ª** do carrinho. A regra e a justificativa estão em [`docs/JUSTIFICATIVA_FRETE.md`](docs/JUSTIFICATIVA_FRETE.md); o valor é gravado no pedido.
+- **Troca.** O cliente pode trocar **um item ou a compra toda** (botão “Selecionar todos os itens”). O administrador só **autoriza**; a **recusa de troca e o estorno financeiro não são implementados** (fora do escopo). O DRS RF0044 pede que o administrador informe se os itens trocados voltam ao estoque (RF0054), e isso foi mantido.
 - **Sem login.** O DRS não define autenticação: “cliente” e “administrador” são telas diferentes. O cliente das telas de cliente vem da URL (`?clienteId=2`; padrão: João Silva, id 1).
 - **Endereço do pedido** é uma referência ao endereço do cliente (não um instantâneo) — simplificação conhecida.
 
@@ -117,9 +120,9 @@ PostgreSQL (opcional): `npm run start:back:postgres` (usa `localhost:5432`, banc
 |---|---|
 | Catálogo | `GET /api/produtos?clienteId=` |
 | Carrinho | `GET /api/clientes/{id}/carrinho` · `POST …/carrinho/itens` · `PATCH …/itens/{itemId}` · `DELETE …/itens/{itemId}` · `POST …/expirados/{id}/readicionar` · `DELETE …/expirados/{id}` |
-| Compra | `POST /api/clientes/{id}/pedidos` · `GET /api/clientes/{id}/pedidos` · `GET /api/clientes/{id}/cupons` |
-| Administração | `GET /api/pedidos?status=` · `PATCH /api/pedidos/{id}/validar-pagamento` · `…/despachar` · `…/confirmar-entrega` |
-| Troca | `POST /api/pedidos/{id}/trocas` · `GET /api/trocas` · `PATCH /api/trocas/{id}/autorizar` · `…/recusar` · `…/confirmar-recebimento` |
+| Compra | `GET /api/clientes/{id}/frete?enderecoId=` · `POST /api/clientes/{id}/pedidos` · `GET /api/clientes/{id}/pedidos` · `GET /api/clientes/{id}/cupons` |
+| Administração | `GET /api/pedidos?status=` · `PATCH /api/pedidos/{id}/despachar` · `…/confirmar-entrega` (a validação do pagamento é automática, sem endpoint) |
+| Troca | `POST /api/pedidos/{id}/trocas` · `GET /api/trocas` · `PATCH /api/trocas/{id}/autorizar` · `…/confirmar-recebimento` |
 | Notificações | `GET /api/clientes/{id}/notificacoes` · `PATCH …/{id}/lida` |
 | Clientes | `/api/clientes` (CRUD, endereços, cartões, senha, transações) |
 | Suporte a testes | `POST /api/test-support/reset` e afins — só existem com `app.test-support.enabled=true` (padrão no H2; **desligado** no perfil `postgres`) |
@@ -130,5 +133,6 @@ Erros de regra de negócio voltam como **409**, validação como **400**, não e
 
 - Use **JDK 17 a 21** (o Lombok desta versão do Spring Boot não suporta JDKs muito novos).
 - Na primeira execução o Maven baixa as dependências (alguns minutos) e o `npm install` baixa o binário do Cypress (~250 MB).
-- RNF0012 (log de escrita): o aspecto `LogDeEscritaAspect` registra, no terminal do backend, toda operação de escrita (data/hora, operação, usuário/1º argumento, resultado).
+- RNF0012 (log de escrita): o aspecto `LogDeEscritaAspect` registra, no terminal do backend, toda operação de escrita (data/hora, operação, usuário/1º argumento, resultado); há teste JUnit para isso.
+- RNF0011 (consulta em até 1 s): o teste Cypress 37 mede o tempo de resposta das consultas de Vendas.
 - O backend valida o CPF com dígitos verificadores; os CPFs fictícios da suíte de Clientes (`111.222.333-XX`) só valem no front, que guarda os dados em memória.

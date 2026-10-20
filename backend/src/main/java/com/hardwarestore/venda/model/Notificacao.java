@@ -21,7 +21,7 @@ import java.time.LocalDateTime;
 /**
  * RN0046 - "quando o administrador autorizar uma troca o sistema devera
  * gerar uma notificacao sobre tal ao cliente". Tambem usada para avisar o
- * cliente de uma troca recusada e do cupom de troca gerado (RF0045), que o
+ * cliente da troca autorizada e do cupom de troca gerado (RF0045), que o
  * DRS pede que seja "disponibilizado para o cliente".
  */
 @Entity

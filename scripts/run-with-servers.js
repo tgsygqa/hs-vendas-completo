@@ -4,11 +4,11 @@
 // fim (passando, falhando ou com Ctrl+C), DERRUBA tudo — inclusive o Java do
 // Spring Boot, que é "neto" do processo que iniciamos.
 //
-//   node scripts/run-with-servers.js vendas        -> 27 testes de Vendas (headless)
+//   node scripts/run-with-servers.js vendas        -> 37 testes de Vendas (headless)
 //   node scripts/run-with-servers.js cliente       -> 64 testes de Clientes (só frontend)
 //   node scripts/run-with-servers.js tudo          -> Clientes + Vendas
 //   node scripts/run-with-servers.js vendas-open   -> abre a interface do Cypress
-//   node scripts/run-with-servers.js ao-vivo       -> roda o caso de uso completo (CTV022) com o navegador
+//   node scripts/run-with-servers.js ao-vivo       -> roda o caso de uso completo (testes 22 a 31) com o navegador
 //                                                     visível (Edge no Windows, Chrome nos demais), sem a
 //                                                     janela inicial do Cypress — útil se ela abrir em branco
 //

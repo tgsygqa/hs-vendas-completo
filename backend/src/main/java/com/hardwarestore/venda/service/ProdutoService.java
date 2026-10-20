@@ -4,6 +4,7 @@ import com.hardwarestore.common.exception.RecursoNaoEncontradoException;
 import com.hardwarestore.venda.dto.ProdutoResponseDTO;
 import com.hardwarestore.venda.model.Produto;
 import com.hardwarestore.venda.repository.ItemCarrinhoRepository;
+import com.hardwarestore.venda.repository.ItemPedidoRepository;
 import com.hardwarestore.venda.repository.ProdutoRepository;
 import org.springframework.stereotype.Service;
 
@@ -20,11 +21,14 @@ public class ProdutoService {
 
     private final ProdutoRepository produtoRepository;
     private final ItemCarrinhoRepository itemCarrinhoRepository;
+    private final ItemPedidoRepository itemPedidoRepository;
 
     public ProdutoService(ProdutoRepository produtoRepository,
-                          ItemCarrinhoRepository itemCarrinhoRepository) {
+                          ItemCarrinhoRepository itemCarrinhoRepository,
+                          ItemPedidoRepository itemPedidoRepository) {
         this.produtoRepository = produtoRepository;
         this.itemCarrinhoRepository = itemCarrinhoRepository;
+        this.itemPedidoRepository = itemPedidoRepository;
     }
 
     /**
@@ -41,13 +45,17 @@ public class ProdutoService {
 
     /**
      * RN0031/RN0044 - estoque menos o que outros clientes bloquearam nos
-     * carrinhos deles (com prazo ainda valido). Nunca negativo.
+     * carrinhos deles (com prazo ainda valido) e menos o que esta bloqueado
+     * em compras EM PROCESSAMENTO (aguardando a validacao do pagamento;
+     * RN0028: se forem reprovadas, os itens voltam a ficar disponiveis).
+     * Nunca negativo.
      */
     public int quantidadeDisponivelPara(Produto produto, Long clienteId) {
         long clienteConsiderado = clienteId == null ? -1L : clienteId;
         long reservado = itemCarrinhoRepository.somarReservadoPorOutros(
                 produto.getId(), clienteConsiderado, LocalDateTime.now());
-        return (int) Math.max(0, produto.getQuantidadeEstoque() - reservado);
+        long emProcessamento = itemPedidoRepository.somarReservadoEmProcessamento(produto.getId());
+        return (int) Math.max(0, produto.getQuantidadeEstoque() - reservado - emProcessamento);
     }
 
     // Usado internamente pelo CarrinhoService - devolve a entidade, nao o

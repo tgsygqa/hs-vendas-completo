@@ -5,7 +5,10 @@
 
 // Massa de dados criada pelos seeders (ver backend: ProdutoSeeder/DataSeeder/CupomSeeder).
 export const PRODUTO = { RTX: 1, RYZEN: 2, HEADSET: 3, TECLADO: 4, SSD: 5 };
-export const FRETE = 24.9; // RF0034 — frete fixo da versão atual
+// RF0034 — o frete depende do endereço (UF) e dos itens (unidades): tarifa da região + R$ 3,00 por unidade a partir da 2ª.
+// Para o endereço "Casa" do João (SP): R$ 24,90 com 1 unidade, R$ 27,90 com 2, R$ 30,90 com 3...
+export const FRETE = 24.9; // 1 unidade, entregue em SP
+export const freteSp = (unidades) => Math.round((24.9 + 3 * Math.max(0, unidades - 1)) * 100) / 100;
 
 // Valor em reais do jeito que a tela mostra (R$ 1.234,56 — o espaço é
 // "não separável", por isso o teste formata do mesmo jeito que o sistema).
@@ -45,6 +48,8 @@ export function irParaCheckout() {
 
 export function escolherPrimeiroEndereco() {
   cy.get('[data-cy=radio-endereco]').first().check();
+  // o frete é calculado pelo backend a partir do endereço: espera o valor aparecer antes de seguir
+  cy.get('[data-cy=frete-valor]').should('not.contain.text', 'Selecione');
 }
 
 export function pagarComCartao(posicao = 0) {

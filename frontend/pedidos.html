@@ -38,15 +38,40 @@ const state = {
   trocaAbertaPedidoId: null,   // pedido cujo formulario de troca esta aberto
 };
 
-async function carregar() {
+let versao = 0;   // sobe a cada carga; a atualizacao automatica descarta resposta que ficou velha
+
+async function buscar() {
   const [cliente, pedidos, notificacoes, cupons] = await Promise.all([
     api(`/clientes/${CLIENTE_ID}`),
     api(`/clientes/${CLIENTE_ID}/pedidos`),
     api(`/clientes/${CLIENTE_ID}/notificacoes`),
     api(`/clientes/${CLIENTE_ID}/cupons`),
   ]);
-  Object.assign(state, { cliente, pedidos, notificacoes, cupons });
+  return { cliente, pedidos, notificacoes, cupons };
 }
+
+async function carregar() {
+  Object.assign(state, await buscar());
+  versao++;
+}
+
+// O pagamento e validado pelo sistema sozinho (EM PROCESSAMENTO -> APROVADA/REPROVADA), entao o
+// status muda sem o cliente fazer nada: a cada 3 s a tela busca os dados de novo e SO redesenha
+// se algo mudou (e nunca enquanto o formulario de troca esta aberto, para nao apagar o que se digita).
+const assinatura = d => JSON.stringify([
+  d.pedidos.map(p => [p.id, p.status, (p.solicitacoesTroca || []).length]),
+  d.notificacoes.map(n => [n.id, n.lida]), d.cupons.map(c => c.id)]);
+
+setInterval(async () => {
+  if (state.trocaAbertaPedidoId !== null) return;
+  const v = versao;
+  try {
+    const novo = await buscar();
+    if (v === versao && state.trocaAbertaPedidoId === null && assinatura(novo) !== assinatura(state)) {
+      Object.assign(state, novo); versao++; render();
+    }
+  } catch (_) { /* sem conexao agora: tenta de novo no proximo ciclo */ }
+}, 3000);
 
 async function atualizar() {
   esconderErro();
@@ -106,8 +131,7 @@ function cardPedido(p) {
 // Situacao de uma solicitacao de troca, do ponto de vista do cliente.
 function resumoTroca(p, s) {
   let situacao;
-  if (s.recusada) situacao = `Recusada${s.motivoRecusa ? ' — ' + esc(s.motivoRecusa) : ''}`;
-  else if (s.cupomGerado) situacao = `Concluída — cupom ${esc(s.cupomGerado.codigo)} de ${fmt(s.cupomGerado.valor)} disponível`;
+  if (s.cupomGerado) situacao = `Concluída — cupom ${esc(s.cupomGerado.codigo)} de ${fmt(s.cupomGerado.valor)} disponível`;
   else if (p.status === 'TROCA_AUTORIZADA') situacao = 'Autorizada — envie os itens para a loja';
   else situacao = 'Aguardando autorização da loja';
   const itens = (s.itens || []).map(i => `${i.quantidade}× ${esc(i.produtoNome)}`).join(', ');
@@ -124,6 +148,7 @@ function formTroca(p) {
   return `
     <div class="form-troca" data-cy="form-troca">
       <h3 class="sublabel" style="margin-top:0;">Solicitar troca — pedido #${p.id}</h3>
+      <button class="secondary sm" style="margin-bottom:10px;" data-cy="btn-selecionar-todos" onclick="selecionarTodos(${p.id})">Selecionar todos os itens (trocar a compra inteira)</button>
       ${(p.itens || []).map(i => `
         <div class="item-troca" data-cy="item-troca" data-item-id="${i.id}">
           <input type="checkbox" id="chk-troca-${i.id}" data-cy="chk-item-troca">
@@ -138,6 +163,15 @@ function formTroca(p) {
         <button class="secondary sm" data-cy="btn-cancelar-troca" onclick="fecharTroca()">Cancelar</button>
       </div>
     </div>`;
+}
+
+// RF0041 - troca de UM item ou de TODA a compra: este botao marca todos os itens, nas quantidades compradas.
+function selecionarTodos(pedidoId) {
+  const pedido = state.pedidos.find(p => p.id === pedidoId);
+  (pedido.itens || []).forEach(i => {
+    document.getElementById(`chk-troca-${i.id}`).checked = true;
+    document.getElementById(`qtd-troca-${i.id}`).value = i.quantidade;
+  });
 }
 
 function abrirTroca(pedidoId) { esconderErro(); state.trocaAbertaPedidoId = pedidoId; render(); }
@@ -161,7 +195,7 @@ async function enviarTroca(pedidoId) {
 }
 
 // ---------------------------------------------------------------------
-// RN0046 - notificacoes (troca autorizada/recusada, cupom gerado)
+// RN0046 - notificacoes (troca autorizada, cupom gerado)
 // ---------------------------------------------------------------------
 function cardNotificacoes() {
   const naoLidas = state.notificacoes.filter(n => !n.lida).length;

@@ -17,6 +17,10 @@ Cypress.Commands.add('apiRequest', (method, path, body) =>
 // beforeEach de cada teste de Vendas: por isso eles não dependem uns dos outros.
 Cypress.Commands.add('resetarBase', () => {
   cy.request('POST', `${api()}/test-support/reset`).its('status').should('eq', 200);
+  // O sistema valida o pagamento sozinho (RN0037/RN0038) alguns segundos depois da compra. Nos testes isso fica
+  // DESLIGADO por padrão, para cada um decidir quando o pagamento é validado (cy.validarPagamentos); o teste da
+  // validação automática liga de novo com cy.definirValidacaoAutomatica.
+  cy.definirValidacaoAutomatica(-1);
 });
 
 // ---- situações difíceis de provocar pela interface ----
@@ -36,6 +40,19 @@ Cypress.Commands.add('definirBloqueio', (clienteId, segundos) => {
 Cypress.Commands.add('varrerExpirados', () => {
   cy.request('POST', `${api()}/test-support/carrinhos/varrer`).its('status').should('eq', 200);
 });
+
+// Atraso (em segundos) da validação automática do pagamento; negativo = desligada.
+Cypress.Commands.add('definirValidacaoAutomatica', (segundos) => {
+  cy.request('PUT', `${api()}/test-support/pagamentos/validacao-automatica?segundos=${segundos}`)
+    .its('status').should('eq', 200);
+});
+
+// Faz agora o que o sistema faz sozinho depois do atraso: valida o pagamento dos pedidos
+// EM_PROCESSAMENTO (todos, ou só o informado) e devolve quantos foram validados.
+Cypress.Commands.add('validarPagamentos', (pedidoId) =>
+  cy.request('POST', `${api()}/test-support/pagamentos/validar${pedidoId ? `?pedidoId=${pedidoId}` : ''}`)
+    .then((r) => r.body.validados)
+);
 
 // ---- montagem de cenário ----
 
@@ -77,13 +94,19 @@ Cypress.Commands.add('criarCartaoViaApi', (clienteId, sobrescrever = {}) => {
 });
 
 // Faz uma compra completa pela API (carrinho -> finalizar, paga tudo em UM
-// cartão) e devolve o pedido, que nasce EM_PROCESSAMENTO.
+// cartão) e devolve o pedido, que nasce EM_PROCESSAMENTO. Compra um produto
+// (produtoId/quantidade) ou vários (itens: [{ produtoId, quantidade }]).
 Cypress.Commands.add('criarPedidoViaApi', (opcoes = {}) => {
   const { clienteId = 1, produtoId = 3, quantidade = 1, cartaoId = 1, enderecoId = 1 } = opcoes;
-  return cy.adicionarAoCarrinhoViaApi(clienteId, produtoId, quantidade).then((carrinho) => {
-    const total = Math.round((carrinho.total + 24.9) * 100) / 100; // produtos + frete fixo
-    return cy.apiRequest('POST', `/clientes/${clienteId}/pedidos`, {
-      enderecoId, cartoes: [{ cartaoId, valor: total }], cupomIds: [],
+  const itens = opcoes.itens || [{ produtoId, quantidade }];
+  itens.forEach((item) => cy.adicionarAoCarrinhoViaApi(clienteId, item.produtoId, item.quantidade));
+  return cy.apiRequest('GET', `/clientes/${clienteId}/carrinho`).then((carrinho) => {
+    // total = produtos + frete (calculado pelo backend para o endereço e as unidades do carrinho)
+    return cy.apiRequest('GET', `/clientes/${clienteId}/frete?enderecoId=${enderecoId}`).then((f) => {
+      const total = Math.round((carrinho.body.total + f.body.valor) * 100) / 100;
+      return cy.apiRequest('POST', `/clientes/${clienteId}/pedidos`, {
+        enderecoId, cartoes: [{ cartaoId, valor: total }], cupomIds: [],
+      });
     });
   }).then((r) => {
     expect(r.status, 'finalizar compra').to.eq(201);
@@ -91,12 +114,13 @@ Cypress.Commands.add('criarPedidoViaApi', (opcoes = {}) => {
   });
 });
 
-// Leva um pedido até o status pedido, passando pelas ações do administrador
-// ('APROVADA' | 'EM_TRANSPORTE' | 'ENTREGUE'). Só executa as etapas que faltam,
-// então pode ser chamado de novo para avançar mais um passo.
+// Leva um pedido até o status pedido ('APROVADA' | 'EM_TRANSPORTE' | 'ENTREGUE'): a aprovação é
+// a validação do pagamento que o sistema faz sozinho (aqui adiantada pelo suporte a testes) e as
+// demais são ações do administrador. Só executa as etapas que faltam, então pode ser chamado
+// de novo para avançar mais um passo.
 Cypress.Commands.add('avancarPedidoViaApi', (pedidoId, destino) => {
   const etapas = [
-    ['APROVADA', 'validar-pagamento'],
+    ['APROVADA', null],
     ['EM_TRANSPORTE', 'despachar'],
     ['ENTREGUE', 'confirmar-entrega'],
   ];
@@ -107,10 +131,15 @@ Cypress.Commands.add('avancarPedidoViaApi', (pedidoId, destino) => {
     etapas.forEach(([status, acao], i) => {
       const posicao = i + 1;
       if (posicao > ordem.indexOf(atual.body.status) && posicao <= ordem.indexOf(destino)) {
-        cy.apiRequest('PATCH', `/pedidos/${pedidoId}/${acao}`).then((r) => {
-          expect(r.status, acao).to.eq(200);
-          expect(r.body.status).to.eq(status);
-        });
+        if (acao === null) {
+          cy.validarPagamentos(pedidoId).should('eq', 1);
+          cy.apiRequest('GET', `/pedidos/${pedidoId}`).its('body.status').should('eq', status);
+        } else {
+          cy.apiRequest('PATCH', `/pedidos/${pedidoId}/${acao}`).then((r) => {
+            expect(r.status, acao).to.eq(200);
+            expect(r.body.status).to.eq(status);
+          });
+        }
       }
     });
   });

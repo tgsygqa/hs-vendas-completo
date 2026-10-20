@@ -20,12 +20,10 @@ public class SolicitacaoTrocaResponseDTO {
     private List<ItemSolicitacaoTrocaResponseDTO> itens;
     private String motivoCliente;
     // Reflete Pedido.status no momento da consulta (EM_TROCA, TROCA_AUTORIZADA,
-    // TROCADO, ou ENTREGUE se esta solicitacao foi recusada) - ver a
-    // observacao na classe SolicitacaoTroca sobre nao duplicar esse estado.
+    // TROCADO) - ver a observacao na classe SolicitacaoTroca sobre nao
+    // duplicar esse estado.
     private String statusPedido;
     private LocalDateTime dataSolicitacao;
-    private boolean recusada;
-    private String motivoRecusa;
     private Boolean itensRetornaramEstoque;
     private CupomResponseDTO cupomGerado;
 
@@ -43,8 +41,6 @@ public class SolicitacaoTrocaResponseDTO {
                 s.getMotivoCliente(),
                 s.getPedido().getStatus().name(),
                 s.getDataSolicitacao(),
-                s.isRecusada(),
-                s.getMotivoRecusa(),
                 s.getItensRetornaramEstoque(),
                 cupom
         );

@@ -7,10 +7,10 @@ import com.hardwarestore.cliente.repository.ClienteRepository;
 import com.hardwarestore.common.exception.RecursoNaoEncontradoException;
 import com.hardwarestore.common.exception.RegraDeNegocioException;
 import com.hardwarestore.venda.dto.ConfirmarRecebimentoTrocaRequestDTO;
+import com.hardwarestore.venda.dto.FreteResponseDTO;
 import com.hardwarestore.venda.dto.ItemTrocaRequestDTO;
 import com.hardwarestore.venda.dto.PagamentoCartaoRequestDTO;
 import com.hardwarestore.venda.dto.PedidoResponseDTO;
-import com.hardwarestore.venda.dto.RecusarTrocaRequestDTO;
 import com.hardwarestore.venda.dto.SolicitacaoTrocaResponseDTO;
 import com.hardwarestore.venda.dto.SolicitarTrocaRequestDTO;
 import com.hardwarestore.venda.model.Carrinho;
@@ -40,19 +40,14 @@ import java.util.Objects;
 
 /**
  * CDU02 completo (RF0033 a RF0045): nasce em EM_PROCESSAMENTO (P2 a P5) e
- * percorre validacao de pagamento (P6, RN0037/RN0038), despacho e entrega
- * (P7/P8, RF0039/RF0040) e, a partir de ENTREGUE, o processo de troca
- * inteiro (P9 a P11, RF0041-RF0045) - ver StatusPedido para o diagrama de
- * estados e SolicitacaoTroca para os detalhes de cada troca.
+ * percorre a validacao de pagamento (P6, RN0037/RN0038 - AUTOMATICA, feita
+ * pelo sistema; ver PagamentoValidacaoJob), despacho e entrega (P7/P8,
+ * RF0039/RF0040, pelo administrador) e, a partir de ENTREGUE, o processo de
+ * troca inteiro (P9 a P11, RF0041-RF0045) - ver StatusPedido para o diagrama
+ * de estados e SolicitacaoTroca para os detalhes de cada troca.
  */
 @Service
 public class PedidoService {
-
-    // RF0034 - frete fixo. O DRS nao detalha o
-    // calculo (por peso, distancia, etc.); um valor fixo e simples cumpre
-    // o requisito sem inventar uma regra que o DRS nao definiu - e e
-    // exatamente o criterio a explicar na apresentacao.
-    private static final BigDecimal FRETE_PADRAO = new BigDecimal("24.90");
 
     // RN0034 - valor minimo por cartao quando a compra usa mais de um.
     private static final BigDecimal VALOR_MINIMO_POR_CARTAO = new BigDecimal("10.00");
@@ -63,6 +58,7 @@ public class PedidoService {
     private final ProdutoRepository produtoRepository;
     private final SolicitacaoTrocaRepository solicitacaoTrocaRepository;
     private final CarrinhoService carrinhoService;
+    private final FreteService freteService;
     private final PagamentoGatewayService pagamentoGatewayService;
     private final NotificacaoService notificacaoService;
 
@@ -72,6 +68,7 @@ public class PedidoService {
                           ProdutoRepository produtoRepository,
                           SolicitacaoTrocaRepository solicitacaoTrocaRepository,
                           CarrinhoService carrinhoService,
+                          FreteService freteService,
                           PagamentoGatewayService pagamentoGatewayService,
                           NotificacaoService notificacaoService) {
         this.pedidoRepository = pedidoRepository;
@@ -80,6 +77,7 @@ public class PedidoService {
         this.produtoRepository = produtoRepository;
         this.solicitacaoTrocaRepository = solicitacaoTrocaRepository;
         this.carrinhoService = carrinhoService;
+        this.freteService = freteService;
         this.pagamentoGatewayService = pagamentoGatewayService;
         this.notificacaoService = notificacaoService;
     }
@@ -88,7 +86,8 @@ public class PedidoService {
      * RF0033 a RF0038 - inicia a finalizacao a partir do carrinho, aplica
      * o endereco (RF0035) e a forma de pagamento (RF0036/RF0037)
      * escolhidos, calcula o frete (RF0034) e cria o pedido em
-     * EM_PROCESSAMENTO (RF0038). O passo seguinte (validacao do pagamento) e validarPagamento.
+     * EM_PROCESSAMENTO (RF0038). O passo seguinte (validacao do pagamento) e
+     * automatico: ver PagamentoValidacaoJob / validarPagamento.
      */
     @Transactional
     public PedidoResponseDTO finalizarCompra(Long clienteId, Long enderecoId,
@@ -139,7 +138,10 @@ public class PedidoService {
         BigDecimal valorProdutos = carrinho.getItens().stream()
                 .map(i -> i.getProduto().getPrecoVenda().multiply(BigDecimal.valueOf(i.getQuantidade())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal valorTotal = valorProdutos.add(FRETE_PADRAO);
+        // RF0034 - frete pelas unidades do carrinho e pela UF do endereco escolhido.
+        int unidades = carrinho.getItens().stream().mapToInt(ItemCarrinho::getQuantidade).sum();
+        BigDecimal frete = freteService.calcular(endereco, unidades).valor();
+        BigDecimal valorTotal = valorProdutos.add(frete);
 
         BigDecimal somaCartoes = cartoesReq.stream().map(PagamentoCartaoRequestDTO::getValor)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -198,7 +200,7 @@ public class PedidoService {
                 .cliente(cliente)
                 .status(StatusPedido.EM_PROCESSAMENTO)
                 .enderecoEntrega(endereco)
-                .frete(FRETE_PADRAO)
+                .frete(frete)
                 .valorTotal(valorTotal)
                 .dataCriacao(LocalDateTime.now())
                 .build();
@@ -242,6 +244,15 @@ public class PedidoService {
         carrinhoService.esvaziarAposFinalizarCompra(carrinho);
 
         return PedidoResponseDTO.fromEntity(pedidoRepository.save(pedido));
+    }
+
+    /**
+     * RF0034 - frete que sera cobrado se o cliente comprar o carrinho atual
+     * com o endereco informado (a tela de compra chama isto ao escolher o endereco).
+     */
+    public FreteResponseDTO calcularFrete(Long clienteId, Long enderecoId) {
+        Cliente cliente = buscarCliente(clienteId);
+        return freteService.calcular(localizarEndereco(cliente, enderecoId), carrinhoService.unidadesNoCarrinho(clienteId));
     }
 
     // Painel do administrador: todos os pedidos (ou so os de um status), mais recentes primeiro.
@@ -317,9 +328,10 @@ public class PedidoService {
      * operadora do cartao". Os cupons ja foram validados na finalizacao
      * (RN0033/RN0034/RN0035/RN0036); o que falta aqui e consultar a
      * "operadora" (PagamentoGatewayService) pelo cartao. RN0038 - aprovada
-     * -> baixa em estoque (RF0053) e status APROVADA; reprovada -> estoque
-     * preservado (RN0028) e status REPROVADA. So pode ser chamado com o
-     * pedido em EM_PROCESSAMENTO.
+     * -> baixa em estoque (RF0053) e status APROVADA; reprovada -> itens
+     * desbloqueados e mantidos em estoque (RN0028) e status REPROVADA. So
+     * pode ser chamado com o pedido em EM_PROCESSAMENTO. Quem chama e o
+     * sistema (PagamentoValidacaoJob), nunca um usuario.
      */
     @Transactional
     public PedidoResponseDTO validarPagamento(Long pedidoId) {
@@ -460,28 +472,6 @@ public class PedidoService {
     }
 
     /**
-     * Caminho assumido (ver observacao em SolicitacaoTroca): o
-     * administrador tambem pode recusar a troca solicitada, com motivo. O
-     * pedido volta para ENTREGUE.
-     */
-    @Transactional
-    public SolicitacaoTrocaResponseDTO recusarTroca(Long solicitacaoId, RecusarTrocaRequestDTO request) {
-        SolicitacaoTroca solicitacao = buscarSolicitacaoTroca(solicitacaoId);
-        exigirStatus(solicitacao.getPedido(), StatusPedido.EM_TROCA);
-        exigirSolicitacaoEmAberto(solicitacao);
-
-        solicitacao.setRecusada(true);
-        solicitacao.setMotivoRecusa(request.getMotivoRecusa());
-        solicitacao.setDataDecisaoAdmin(LocalDateTime.now());
-        solicitacao.getPedido().setStatus(StatusPedido.ENTREGUE);
-        pedidoRepository.save(solicitacao.getPedido());
-        notificacaoService.notificar(solicitacao.getPedido().getCliente(),
-                "Sua solicitação de troca do pedido #" + solicitacao.getPedido().getId()
-                        + " foi RECUSADA. Motivo: " + request.getMotivoRecusa());
-        return SolicitacaoTrocaResponseDTO.fromEntity(solicitacaoTrocaRepository.save(solicitacao));
-    }
-
-    /**
      * RF0044 - confirma o recebimento do item devolvido e registra se ele
      * retorna ao estoque. RF0054 - se sim, reentrada em estoque. RN0042 -
      * pedido vai para TROCADO. RF0045 - gera o cupom de troca, no valor
@@ -492,8 +482,7 @@ public class PedidoService {
                                                                    ConfirmarRecebimentoTrocaRequestDTO request) {
         SolicitacaoTroca solicitacao = buscarSolicitacaoTroca(solicitacaoId);
         exigirStatus(solicitacao.getPedido(), StatusPedido.TROCA_AUTORIZADA);
-        if (solicitacao.isRecusada() || solicitacao.getDataDecisaoAdmin() == null
-                || solicitacao.getDataRecebimento() != null) {
+        if (solicitacao.getDataDecisaoAdmin() == null || solicitacao.getDataRecebimento() != null) {
             throw new RegraDeNegocioException("Esta solicitação de troca não está aguardando recebimento.");
         }
 
@@ -555,10 +544,10 @@ public class PedidoService {
         return String.format(new java.util.Locale("pt", "BR"), "R$ %,.2f", valor);
     }
 
-    // Uma solicitacao so pode ser decidida uma vez (autorizada ou recusada).
+    // Uma solicitacao so pode ser autorizada uma vez.
     private void exigirSolicitacaoEmAberto(SolicitacaoTroca solicitacao) {
         if (solicitacao.getDataDecisaoAdmin() != null) {
-            throw new RegraDeNegocioException("Esta solicitação de troca já foi decidida.");
+            throw new RegraDeNegocioException("Esta solicitação de troca já foi autorizada.");
         }
     }
 
